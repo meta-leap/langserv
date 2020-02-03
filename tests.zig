@@ -1,5 +1,6 @@
 const std = @import("std");
 
 test "" {
-    std.debug.warn("\n\nHolaWult\n\n", .{});
+    const lsptypes = @import("src/lsp_types.zig");
+    const lspspec = @import("src/lsp_api_spec.zig");
 }
