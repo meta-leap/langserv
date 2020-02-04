@@ -3,7 +3,7 @@ const zag = @import("zag");
 
 usingnamespace @import("jsonic");
 
-usingnamespace @import("./api_spec.zig");
+usingnamespace @import("./lsp_api_messages.zig");
 
 pub var onOutput: fn ([]const u8) anyerror!void = undefined;
 

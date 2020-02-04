@@ -1,5 +1,5 @@
 const std = @import("std");
 
-pub usingnamespace @import("src/api_spec.zig");
-pub usingnamespace @import("src/api_types.zig");
-pub usingnamespace @import("src/engine.zig");
+pub usingnamespace @import("src/lsp_engine.zig");
+pub usingnamespace @import("src/lsp_api_messages.zig");
+pub usingnamespace @import("src/lsp_api_types.zig");

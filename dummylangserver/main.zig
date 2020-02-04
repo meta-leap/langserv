@@ -1,5 +1,4 @@
 const std = @import("std");
-const zag = @import("zag");
 const lsp = @import("lsp");
 
 const stdout = std.io.getStdOut();

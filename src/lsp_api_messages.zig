@@ -2,7 +2,7 @@ const std = @import("std");
 
 usingnamespace @import("jsonic").JsonRpc;
 
-usingnamespace @import("./api_types.zig");
+usingnamespace @import("./lsp_api_types.zig");
 
 pub const api_spec = Spec{
     .newReqId = nextReqId,
