@@ -1,6 +1,6 @@
 const std = @import("std");
 
-usingnamespace @import("jsonic").JsonRpc;
+usingnamespace @import("../../jsonic/api.zig").JsonRpc;
 
 usingnamespace @import("./lsp_api_types.zig");
 

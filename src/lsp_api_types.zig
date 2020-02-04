@@ -44,10 +44,7 @@ pub const Diagnostic = struct {
         Information = 3,
         Hint = 4,
     },
-    code: ?union(enum) {
-        int: isize,
-        string: String,
-    },
+    code: ?std.json.Value,
     source: ?String,
     message: String,
     tags: ?[]DiagnosticTag,

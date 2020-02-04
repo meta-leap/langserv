@@ -1,5 +1,5 @@
 const std = @import("std");
-const lsp = @import("lsp");
+const lsp = @import("../api.zig");
 
 const stdout = std.io.getStdOut();
 

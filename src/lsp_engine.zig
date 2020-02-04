@@ -1,13 +1,10 @@
 const std = @import("std");
-const zag = @import("zag");
+const zag = @import("../../zag/api.zig");
 
-usingnamespace @import("jsonic");
-
+usingnamespace @import("../../jsonic/api.zig");
 usingnamespace @import("./lsp_api_messages.zig");
 
 pub var onOutput: fn ([]const u8) anyerror!void = undefined;
-
-pub var mem_alloc_for_arenas: *std.mem.Allocator = std.heap.page_allocator;
 
 const LspApi = JsonRpc.Api(api_spec, JsonRpc.Options{
     .rewriteUnionFieldNameToJsonRpcMethodName = rewriteUnionFieldNameToJsonRpcMethodName,
@@ -20,24 +17,23 @@ const LspApi = JsonRpc.Api(api_spec, JsonRpc.Options{
     },
 });
 
+pub var lsp_api = LspApi{
+    .mem_alloc_for_arenas = std.heap.page_allocator,
+    .onOutgoing = onOutputPrependHeader,
+};
+
 fn onOutputPrependHeader(raw_outgoing_json_bytes: []const u8) void {
     const full_out_bytes = std.fmt.
-        allocPrint(mem_alloc_for_arenas, "Content-Length: {d}\r\n\r\n{s}", .{ raw_outgoing_json_bytes.len, raw_outgoing_json_bytes }) catch
+        allocPrint(lsp_api.mem_alloc_for_arenas, "Content-Length: {d}\r\n\r\n{s}", .{ raw_outgoing_json_bytes.len, raw_outgoing_json_bytes }) catch
         |err| @panic(@errorName(err));
-    defer mem_alloc_for_arenas.free(full_out_bytes);
+    defer lsp_api.mem_alloc_for_arenas.free(full_out_bytes);
     onOutput(full_out_bytes) catch
         |err| @panic(@errorName(err));
 }
 
 pub fn serveForever(in_stream: var) !void {
-    var mem_forever = std.heap.ArenaAllocator.init(mem_alloc_for_arenas);
+    var mem_forever = std.heap.ArenaAllocator.init(lsp_api.mem_alloc_for_arenas);
     defer mem_forever.deinit();
-
-    var jsonrpc = LspApi{
-        .mem_alloc_for_arenas = mem_alloc_for_arenas,
-        .onOutgoing = onOutputPrependHeader,
-    };
-    defer jsonrpc.deinit();
 
     // jsonrpc.on(init);
 
@@ -47,9 +43,12 @@ pub fn serveForever(in_stream: var) !void {
     };
 
     while (try in_stream_splitter.next()) |headers_and_body| {
-        // const msg_headers = headers_and_body[0]; // no need for them
+        // const msg_headers = headers_and_body[0]; // so far no need for them
         const msg_body = headers_and_body[1];
-        jsonrpc.incoming(msg_body) catch |err| switch (err) {};
+        lsp_api.incoming(msg_body) catch |err| switch (err) {
+            error.OutOfMemory => return err,
+            else => std.debug.warn("bad JSON input message triggered '{s}' error:\n{s}\n", .{ @errorName(err), msg_body }),
+        };
     }
 }
 
