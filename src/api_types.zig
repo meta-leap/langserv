@@ -8,7 +8,7 @@ pub const ErrorCodes = enum(isize) {
 };
 
 pub const CancelParams = struct {
-    id: IntOrString,
+    id: std.json.Value,
 };
 
 pub const DocumentUri = String;
@@ -44,7 +44,10 @@ pub const Diagnostic = struct {
         Information = 3,
         Hint = 4,
     },
-    code: ?IntOrString,
+    code: ?union(enum) {
+        int: isize,
+        string: String,
+    },
     source: ?String,
     message: String,
     tags: ?[]DiagnosticTag,
@@ -65,7 +68,7 @@ pub const DiagnosticRelatedInformation = struct {
 pub const Command = struct {
     title: String,
     command: String,
-    arguments: ?[]JsonAny,
+    arguments: ?[]std.json.Value,
 };
 
 pub const TextEdit = struct {
@@ -156,7 +159,7 @@ pub const InitializeParams = struct {
         version: ?String,
     },
     rootUri: ?DocumentUri,
-    initializationOptions: ?JsonAny,
+    initializationOptions: ?std.json.Value,
     capabilities: ClientCapabilities,
     trace: ?String,
     workspaceFolders: ?[]WorkspaceFolder,
@@ -387,7 +390,7 @@ pub const ClientCapabilities = struct {
             lineFoldingOnly: ?bool,
         },
     },
-    experimental: ?JsonAny,
+    experimental: ?std.json.Value,
 };
 
 pub const InitializeResult = struct {
@@ -485,7 +488,7 @@ pub const ServerCapabilities = struct {
         } = null,
     } = null,
     selectionRangeProvider: ?bool = null,
-    experimental: ?JsonAny = null,
+    experimental: ?std.json.Value = null,
 };
 
 pub const InitializedParams = struct {};
@@ -521,7 +524,7 @@ pub const LogMessageParams = struct {
 pub const Registration = struct {
     id: String,
     method: String,
-    registerOptions: ?JsonAny,
+    registerOptions: ?std.json.Value,
 };
 
 pub const RegistrationParams = struct {
@@ -556,7 +559,7 @@ pub const WorkspaceFoldersChangeEvent = struct {
 };
 
 pub const DidChangeConfigurationParams = struct {
-    settings: JsonAny,
+    settings: std.json.Value,
 };
 
 pub const ConfigurationParams = struct {
@@ -604,7 +607,7 @@ pub const WorkspaceSymbolParams = struct {
 pub const ExecuteCommandParams = struct {
     WorkDoneProgressParams: WorkDoneProgressParams,
     command: String,
-    arguments: ?[]JsonAny,
+    arguments: ?[]std.json.Value,
 };
 
 pub const ExecuteCommandRegistrationOptions = struct {
@@ -715,7 +718,7 @@ pub const CompletionItem = struct {
     additionalTextEdits: ?[]TextEdit,
     commitCharacters: ?[]String,
     command: ?String,
-    data: ?JsonAny,
+    data: ?std.json.Value,
 };
 
 pub const CompletionRegistrationOptions = struct {
@@ -832,7 +835,7 @@ pub const CodeLensParams = struct {
 pub const CodeLens = struct {
     range: Range,
     command: ?Command,
-    data: ?JsonAny,
+    data: ?std.json.Value,
 };
 
 pub const CodeLensRegistrationOptions = struct {
@@ -850,7 +853,7 @@ pub const DocumentLink = struct {
     range: Range,
     target: ?DocumentUri,
     toolTip: ?String,
-    data: ?JsonAny,
+    data: ?std.json.Value,
 };
 
 pub const DocumentLinkRegistrationOptions = struct {
@@ -967,11 +970,11 @@ pub const PartialResultParams = struct {
     partialResultToken: ?ProgressToken,
 };
 
-pub const ProgressToken = IntOrString;
+pub const ProgressToken = std.json.Value;
 
 pub const ProgressParams = struct {
     token: ProgressToken,
-    value: JsonAny,
+    value: std.json.Value,
 };
 
 pub const WorkDoneProgress = struct {

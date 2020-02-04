@@ -1,6 +1,9 @@
 const std = @import("std");
 
-const lib_zag = std.build.Pkg{ .name = "zag", .path = "../zag/api.zig" };
+const lib_zag = std.build.Pkg{
+    .name = "zag",
+    .path = "../zag/api.zig",
+};
 const lib_jsonic = std.build.Pkg{
     .name = "jsonic",
     .path = "../jsonic/api.zig",
@@ -8,7 +11,7 @@ const lib_jsonic = std.build.Pkg{
 };
 const lib_lsp = std.build.Pkg{
     .name = "lsp",
-    .path = "api.zig",
+    .path = "./api.zig",
     .dependencies = &[_]std.build.Pkg{ lib_zag, lib_jsonic },
 };
 
