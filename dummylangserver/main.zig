@@ -1,5 +1,5 @@
 const std = @import("std");
-const lsp = @import("../api.zig");
+const lsp = @import("../api.zig").Server;
 
 const stdout = std.io.getStdOut();
 
@@ -8,6 +8,7 @@ fn stdoutWriteOrCrash(out_bytes: []const u8) !void {
 }
 
 pub fn main() !u8 {
+    lsp.name = "dummylangserver";
     try serveForever();
     return 1; // lsp.serveForver does a proper os.Exit(0) when so instructed by lang-client (which conventionally also launched it)
 }

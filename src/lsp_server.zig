@@ -3,19 +3,13 @@ const zag = @import("../../zag/api.zig");
 
 usingnamespace @import("../../jsonic/api.zig");
 usingnamespace @import("./lsp_api_messages.zig");
+usingnamespace @import("./lsp_api_types.zig");
+
+pub var name: []const u8 = "unnamed";
 
 pub var onOutput: fn ([]const u8) anyerror!void = undefined;
 
-const LspApi = JsonRpc.Api(api_spec, JsonRpc.Options{
-    .rewriteUnionFieldNameToJsonRpcMethodName = rewriteUnionFieldNameToJsonRpcMethodName,
-    .rewriteJsonRpcMethodNameToUnionFieldName = rewriteJsonRpcMethodNameToUnionFieldName,
-    .json = Jsonic{
-        .rewriteStructFieldNameToJsonObjectKey = rewriteStructFieldNameToJsonObjectKey,
-        .isStructFieldEmbedded = isStructFieldEmbedded,
-        .unmarshal_set_optionals_null_on_bad_inputs = true,
-        .unmarshal_err_on_missing_nonvoid_nonoptional_fields = false,
-    },
-});
+const LspApi = JsonRpc.Api(api_server_side, @import("./lsp_json_settings.zig").Default);
 
 pub var lsp_api = LspApi{
     .mem_alloc_for_arenas = std.heap.page_allocator,
@@ -35,7 +29,7 @@ pub fn serveForever(in_stream: var) !void {
     var mem_forever = std.heap.ArenaAllocator.init(lsp_api.mem_alloc_for_arenas);
     defer mem_forever.deinit();
 
-    // jsonrpc.on(init);
+    lsp_api.onRequest(.initialize, on_initialize);
 
     var in_stream_splitter = zag.io.HttpishHeaderBodySplittingReader(@TypeOf(in_stream)){
         .in_stream = in_stream,
@@ -52,18 +46,6 @@ pub fn serveForever(in_stream: var) !void {
     }
 }
 
-fn rewriteUnionFieldNameToJsonRpcMethodName(comptime union_type: type, comptime union_field_idx: comptime_int, comptime union_field_name: []const u8) []const u8 {
-    return union_field_name;
-}
-
-fn rewriteJsonRpcMethodNameToUnionFieldName(incoming_kind: JsonRpc.MsgKind, jsonrpc_method_name: []const u8) []const u8 {
-    return jsonrpc_method_name;
-}
-
-fn rewriteStructFieldNameToJsonObjectKey(comptime TStruct: type, field_name: []const u8, when: Jsonic.During) []const u8 {
-    return field_name;
-}
-
-fn isStructFieldEmbedded(comptime TStruct: type, field_name: []const u8, comptime TField: type, comptime when: Jsonic.During) bool {
-    return false;
+fn on_initialize(in: JsonRpc.Arg(InitializeParams)) JsonRpc.Ret(InitializeResult) {
+    return .{ .ok = undefined };
 }

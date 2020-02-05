@@ -1,4 +1,7 @@
 const std = @import("std");
+const jsonic = @import("../../jsonic/api.zig");
+
+// TODO: catch up on spec changes since last check of: 22 Jan 2020
 
 pub const String = []const u8;
 
@@ -8,7 +11,7 @@ pub const ErrorCodes = enum(isize) {
 };
 
 pub const CancelParams = struct {
-    id: std.json.Value,
+    id: jsonic.AnyValue,
 };
 
 pub const DocumentUri = String;
@@ -44,7 +47,7 @@ pub const Diagnostic = struct {
         Information = 3,
         Hint = 4,
     },
-    code: ?std.json.Value,
+    code: ?jsonic.AnyValue,
     source: ?String,
     message: String,
     tags: ?[]DiagnosticTag,
@@ -65,7 +68,7 @@ pub const DiagnosticRelatedInformation = struct {
 pub const Command = struct {
     title: String,
     command: String,
-    arguments: ?[]std.json.Value,
+    arguments: ?[]jsonic.AnyValue,
 };
 
 pub const TextEdit = struct {
@@ -156,7 +159,7 @@ pub const InitializeParams = struct {
         version: ?String,
     },
     rootUri: ?DocumentUri,
-    initializationOptions: ?std.json.Value,
+    initializationOptions: ?jsonic.AnyValue,
     capabilities: ClientCapabilities,
     trace: ?String,
     workspaceFolders: ?[]WorkspaceFolder,
@@ -387,7 +390,7 @@ pub const ClientCapabilities = struct {
             lineFoldingOnly: ?bool,
         },
     },
-    experimental: ?std.json.Value,
+    experimental: ?jsonic.AnyValue,
 };
 
 pub const InitializeResult = struct {
@@ -485,7 +488,7 @@ pub const ServerCapabilities = struct {
         } = null,
     } = null,
     selectionRangeProvider: ?bool = null,
-    experimental: ?std.json.Value = null,
+    experimental: ?jsonic.AnyValue = null,
 };
 
 pub const InitializedParams = struct {};
@@ -521,7 +524,7 @@ pub const LogMessageParams = struct {
 pub const Registration = struct {
     id: String,
     method: String,
-    registerOptions: ?std.json.Value,
+    registerOptions: ?jsonic.AnyValue,
 };
 
 pub const RegistrationParams = struct {
@@ -556,7 +559,7 @@ pub const WorkspaceFoldersChangeEvent = struct {
 };
 
 pub const DidChangeConfigurationParams = struct {
-    settings: std.json.Value,
+    settings: jsonic.AnyValue,
 };
 
 pub const ConfigurationParams = struct {
@@ -604,7 +607,7 @@ pub const WorkspaceSymbolParams = struct {
 pub const ExecuteCommandParams = struct {
     WorkDoneProgressParams: WorkDoneProgressParams,
     command: String,
-    arguments: ?[]std.json.Value,
+    arguments: ?[]jsonic.AnyValue,
 };
 
 pub const ExecuteCommandRegistrationOptions = struct {
@@ -715,7 +718,7 @@ pub const CompletionItem = struct {
     additionalTextEdits: ?[]TextEdit,
     commitCharacters: ?[]String,
     command: ?String,
-    data: ?std.json.Value,
+    data: ?jsonic.AnyValue,
 };
 
 pub const CompletionRegistrationOptions = struct {
@@ -832,7 +835,7 @@ pub const CodeLensParams = struct {
 pub const CodeLens = struct {
     range: Range,
     command: ?Command,
-    data: ?std.json.Value,
+    data: ?jsonic.AnyValue,
 };
 
 pub const CodeLensRegistrationOptions = struct {
@@ -850,7 +853,7 @@ pub const DocumentLink = struct {
     range: Range,
     target: ?DocumentUri,
     toolTip: ?String,
-    data: ?std.json.Value,
+    data: ?jsonic.AnyValue,
 };
 
 pub const DocumentLinkRegistrationOptions = struct {
@@ -967,11 +970,11 @@ pub const PartialResultParams = struct {
     partialResultToken: ?ProgressToken,
 };
 
-pub const ProgressToken = std.json.Value;
+pub const ProgressToken = jsonic.AnyValue;
 
 pub const ProgressParams = struct {
     token: ProgressToken,
-    value: std.json.Value,
+    value: jsonic.AnyValue,
 };
 
 pub const WorkDoneProgress = struct {
