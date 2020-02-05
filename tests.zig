@@ -4,5 +4,5 @@ test "" {
     const lsp = @import("./api.zig");
 
     _ = lsp.api_server_side;
-    _ = lsp.Server.serveForever;
+    _ = lsp.Server.forever;
 }

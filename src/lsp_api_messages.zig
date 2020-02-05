@@ -8,7 +8,7 @@ usingnamespace @import("./lsp_api_types.zig");
 pub const api_client_side = api_server_side.inverse(null);
 
 pub const api_server_side = Spec{
-    .newReqId = nextReqId,
+    .newReqId = @import("./lsp_common.zig").nextReqId,
 
     // incoming events / announcements from the LSP client counterparty
     .NotifyIn = union(enum) {
@@ -97,13 +97,3 @@ pub const api_server_side = Spec{
         textDocument_selectionRange: fn (SelectionRangeParams) ?[]SelectionRange,
     },
 };
-
-fn nextReqId(owner: *std.mem.Allocator) !std.json.Value {
-    const global_counter = struct {
-        var req_id: isize = 0;
-    };
-    global_counter.req_id += 1;
-
-    const str = try std.fmt.allocPrint(owner, "lsp_{s}_req_{d}", .{ @import("./lsp_server.zig").name, global_counter.req_id });
-    return std.json.Value{ .String = str };
-}
