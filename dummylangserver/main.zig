@@ -9,7 +9,6 @@ fn stdoutWriteOrCrash(out_bytes: []const u8) !void {
 
 pub fn main() !u8 {
     try serveForever();
-
     return 1; // lsp.serveForver does a proper os.Exit(0) when so instructed by lang-client (which conventionally also launched it)
 }
 

@@ -22,9 +22,9 @@ pub var lsp_api = LspApi{
     .onOutgoing = onOutputPrependHeader,
 };
 
-fn onOutputPrependHeader(raw_outgoing_json_bytes: []const u8) void {
+fn onOutputPrependHeader(raw_json_bytes: []const u8) void {
     const full_out_bytes = std.fmt.
-        allocPrint(lsp_api.mem_alloc_for_arenas, "Content-Length: {d}\r\n\r\n{s}", .{ raw_outgoing_json_bytes.len, raw_outgoing_json_bytes }) catch
+        allocPrint(lsp_api.mem_alloc_for_arenas, "Content-Length: {d}\r\n\r\n{s}", .{ raw_json_bytes.len, raw_json_bytes }) catch
         |err| @panic(@errorName(err));
     defer lsp_api.mem_alloc_for_arenas.free(full_out_bytes);
     onOutput(full_out_bytes) catch
@@ -47,7 +47,7 @@ pub fn serveForever(in_stream: var) !void {
         const msg_body = headers_and_body[1];
         lsp_api.incoming(msg_body) catch |err| switch (err) {
             error.OutOfMemory => return err,
-            else => std.debug.warn("bad JSON input message triggered '{s}' error:\n{s}\n", .{ @errorName(err), msg_body }),
+            else => std.debug.warn("\nbad JSON input message triggered '{s}' error:\n{s}\n", .{ @errorName(err), msg_body }),
         };
     }
 }
