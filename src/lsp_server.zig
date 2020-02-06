@@ -12,6 +12,7 @@ pub var setup = InitializeResult{
         .name = "unnamed",
     },
 };
+pub var initialized: ?InitializeParams = null;
 pub var onOutput: fn ([]const u8) anyerror!void = undefined;
 
 const LspApi = JsonRpc.Api(api_server_side, JsonOptions);
@@ -19,7 +20,6 @@ const LspApi = JsonRpc.Api(api_server_side, JsonOptions);
 pub var jsonrpc = LspApi{
     .mem_alloc_for_arenas = std.heap.page_allocator,
     .onOutgoing = onOutputPrependHeader,
-    .panic_instead_of_overwriting_existing_subscriber = true,
 };
 
 fn onOutputPrependHeader(owner: *std.mem.Allocator, raw_json_bytes_to_output: []const u8) void {
@@ -29,6 +29,13 @@ fn onOutputPrependHeader(owner: *std.mem.Allocator, raw_json_bytes_to_output: []
 pub fn forever(in_stream: var) !void {
     var mem_forever = std.heap.ArenaAllocator.init(jsonrpc.mem_alloc_for_arenas);
     defer mem_forever.deinit();
+
+    if (jsonrpc.__.handlers_requests[@enumToInt(api_server_side.RequestIn.initialize)]) |_|
+        return error.CallerAlreadySubscribedToLspServerReservedInitializeMsg;
+    if (jsonrpc.__.handlers_notifies[@enumToInt(api_server_side.NotifyIn.__cancelRequest)]) |_|
+        return error.CallerAlreadySubscribedToLspServerReservedCancelRequestMsg;
+    if (jsonrpc.__.handlers_notifies[@enumToInt(api_server_side.NotifyIn.exit)]) |_|
+        return error.CallerAlreadySubscribedToLspServerReservedExitMsg;
 
     jsonrpc.onRequest(.initialize, on_initialize);
     jsonrpc.onNotify(.__cancelRequest, on_cancel);
@@ -50,6 +57,7 @@ pub fn forever(in_stream: var) !void {
 }
 
 fn on_initialize(in: JsonRpc.Arg(InitializeParams)) error{}!JsonRpc.Ret(InitializeResult) {
+    initialized = in.it;
     std.debug.warn("\n\nINIT\n{}\n\n{}\n\n", .{ in.it, setup });
     return JsonRpc.Ret(InitializeResult){ .ok = setup };
 }

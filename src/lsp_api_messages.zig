@@ -13,6 +13,8 @@ pub const api_server_side = Spec{
     // incoming events / announcements from the LSP client counterparty
     .NotifyIn = union(enum) {
         __cancelRequest: CancelParams,
+        __traceLogNotification: jsonic.AnyValue,
+        __setLogNotification: jsonic.AnyValue,
         initialized: InitializedParams,
         exit: void,
         workspace_didChangeWorkspaceFolders: DidChangeWorkspaceFoldersParams,
