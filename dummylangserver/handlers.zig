@@ -15,6 +15,6 @@ fn onInitialized(in: Arg(InitializedParams)) !void {
     });
 }
 
-fn onShutdown(in: Arg(void)) Ret(void) {
-    return .{ .ok = {} };
+fn onShutdown(in: Arg(void)) error{}!Ret(void) {
+    return Ret(void){ .ok = {} };
 }

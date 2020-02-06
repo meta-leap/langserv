@@ -49,15 +49,15 @@ pub fn forever(in_stream: var) !void {
     }
 }
 
-fn on_initialize(in: JsonRpc.Arg(InitializeParams)) JsonRpc.Ret(InitializeResult) {
+fn on_initialize(in: JsonRpc.Arg(InitializeParams)) error{}!JsonRpc.Ret(InitializeResult) {
     std.debug.warn("\n\nINIT\n{}\n\n{}\n\n", .{ in.it, setup });
-    return .{ .ok = setup };
+    return JsonRpc.Ret(InitializeResult){ .ok = setup };
 }
 
-fn on_cancel(in: JsonRpc.Arg(CancelParams)) anyerror!void {
+fn on_cancel(in: JsonRpc.Arg(CancelParams)) error{}!void {
     // TODO
 }
 
-fn on_exit(in: JsonRpc.Arg(void)) anyerror!void {
+fn on_exit(in: JsonRpc.Arg(void)) error{}!void {
     std.os.exit(0);
 }
