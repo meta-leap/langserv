@@ -2,6 +2,8 @@ const std = @import("std");
 const jsonic = @import("../../jsonic/api.zig");
 
 // TODO: catch up on spec changes since last check of: 06 Feb 2020
+// https://microsoft.github.io/language-server-protocol/specifications/specification-current/
+// https://github.com/Microsoft/language-server-protocol/blob/gh-pages/_specifications/specification-3-15.md
 
 pub const String = []const u8;
 
@@ -32,7 +34,7 @@ pub const Location = struct {
 };
 
 pub const LocationLink = struct {
-    originSelectionRange: ?Range,
+    originSelectionRange: ?Range = null,
     targetUri: DocumentUri,
     targetRange: Range,
     targetSelectionRange: Range,
@@ -46,12 +48,12 @@ pub const Diagnostic = struct {
         Warning = 2,
         Information = 3,
         Hint = 4,
-    },
-    code: ?jsonic.AnyValue,
-    source: ?String,
+    } = null,
+    code: ?jsonic.AnyValue = null,
+    source: ?String = null,
     message: String,
-    tags: ?[]DiagnosticTag,
-    relatedInformation: ?[]DiagnosticRelatedInformation,
+    tags: ?[]DiagnosticTag = null,
+    relatedInformation: ?[]DiagnosticRelatedInformation = null,
 };
 
 pub const DiagnosticTag = enum {
@@ -68,7 +70,7 @@ pub const DiagnosticRelatedInformation = struct {
 pub const Command = struct {
     title: String,
     command: String,
-    arguments: ?[]jsonic.AnyValue,
+    arguments: ?[]jsonic.AnyValue = null,
 };
 
 pub const TextEdit = struct {
@@ -83,7 +85,7 @@ pub const TextDocumentEdit = struct {
 
 pub const VersionedTextDocumentIdentifier = struct {
     TextDocumentIdentifier: TextDocumentIdentifier,
-    version: ?isize,
+    version: ?isize = null,
 };
 
 pub const TextDocumentPositionParams = struct {
@@ -96,15 +98,15 @@ pub const TextDocumentIdentifier = struct {
 };
 
 pub const WorkspaceEdit = struct {
-    changes: ?std.StringHashMap([]TextEdit), // ?std.AutoHashMap(DocumentUri, []TextEdit),
+    changes: ?std.StringHashMap([]TextEdit) = null,
     documentChanges: ?[]union(enum) {
         edit: TextDocumentEdit,
         file_create: struct {
             kind: String = "create",
             uri: DocumentUri,
             options: ?struct {
-                overwrite: ?bool,
-                ignoreIfExists: ?bool,
+                overwrite: ?bool = null,
+                ignoreIfExists: ?bool = null,
             } = null,
         },
         file_rename: struct {
@@ -112,19 +114,19 @@ pub const WorkspaceEdit = struct {
             oldUri: DocumentUri,
             newUri: DocumentUri,
             options: ?struct {
-                overwrite: ?bool,
-                ignoreIfExists: ?bool,
+                overwrite: ?bool = null,
+                ignoreIfExists: ?bool = null,
             } = null,
         },
         file_delete: struct {
             kind: String = "delete",
             uri: DocumentUri,
             options: ?struct {
-                recursive: ?bool,
-                ignoreIfNotExists: ?bool,
+                recursive: ?bool = null,
+                ignoreIfNotExists: ?bool = null,
             } = null,
         },
-    },
+    } = null,
 };
 
 pub const TextDocumentItem = struct {
@@ -135,18 +137,18 @@ pub const TextDocumentItem = struct {
 };
 
 pub const DocumentFilter = struct {
-    language: ?String,
-    scheme: ?String,
-    pattern: ?String,
+    language: ?String = null,
+    scheme: ?String = null,
+    pattern: ?String = null,
 };
 
 pub const DocumentSelector = []DocumentFilter;
 
 pub const MarkupContent = struct {
-    kind: String,
+    kind: String = Kind.markdown,
     value: String,
 
-    pub const kind = struct {
+    pub const Kind = struct {
         pub const plaintext = "plaintext";
         pub const markdown = "markdown";
     };
@@ -154,16 +156,16 @@ pub const MarkupContent = struct {
 
 pub const InitializeParams = struct {
     WorkDoneProgressParams: WorkDoneProgressParams,
-    processId: ?isize,
+    processId: ?isize = null,
     clientInfo: ?struct {
         name: String,
-        version: ?String,
-    },
-    rootUri: ?DocumentUri,
-    initializationOptions: ?jsonic.AnyValue,
+        version: ?String = null,
+    } = null,
+    rootUri: ?DocumentUri = null,
+    initializationOptions: ?jsonic.AnyValue = null,
     capabilities: ClientCapabilities,
-    trace: ?String,
-    workspaceFolders: ?[]WorkspaceFolder,
+    trace: ?String = null,
+    workspaceFolders: ?[]WorkspaceFolder = null,
 
     pub const trace_off = "off";
     pub const trace_messages = "messages";
@@ -244,11 +246,11 @@ pub const SymbolKind = enum {
 
 pub const ClientCapabilities = struct {
     workspace: ?struct {
-        applyEdit: ?bool,
+        applyEdit: ?bool = null,
         workspaceEdit: ?struct {
-            documentChanges: ?bool,
-            resourceOperations: ?[]String,
-            failureHandling: ?String,
+            documentChanges: ?bool = null,
+            resourceOperations: ?[]String = null,
+            failureHandling: ?String = null,
 
             pub const resource_operation_kind_create = "create";
             pub const resource_operation_kind_rename = "rename";
@@ -257,141 +259,141 @@ pub const ClientCapabilities = struct {
             pub const failure_handling_kind_transactional = "transactional";
             pub const failure_handling_kind_undo = "undo";
             pub const failure_handling_kind_textOnlyTransactional = "textOnlyTransactional";
-        },
+        } = null,
         didChangeConfiguration: ?struct {
-            dynamicRegistration: ?bool,
-        },
+            dynamicRegistration: ?bool = null,
+        } = null,
         didChangeWatchedFiles: ?struct {
-            dynamicRegistration: ?bool,
-        },
+            dynamicRegistration: ?bool = null,
+        } = null,
         symbol: ?struct {
-            dynamicRegistration: ?bool,
+            dynamicRegistration: ?bool = null,
             symbolKind: ?struct {
-                valueSet: ?[]SymbolKind,
-            },
-        },
+                valueSet: ?[]SymbolKind = null,
+            } = null,
+        } = null,
         executeCommand: ?struct {
-            dynamicRegistration: ?bool,
-        },
-        workspaceFolders: ?bool,
-        configuration: ?bool,
-    },
+            dynamicRegistration: ?bool = null,
+        } = null,
+        workspaceFolders: ?bool = null,
+        configuration: ?bool = null,
+    } = null,
     textDocument: ?struct {
         selectionRange: ?struct {
-            dynamicRegistration: ?bool,
-        },
+            dynamicRegistration: ?bool = null,
+        } = null,
         synchronization: ?struct {
-            dynamicRegistration: ?bool,
-            willSave: ?bool,
-            willSaveWaitUntil: ?bool,
-            didSave: ?bool,
-        },
+            dynamicRegistration: ?bool = null,
+            willSave: ?bool = null,
+            willSaveWaitUntil: ?bool = null,
+            didSave: ?bool = null,
+        } = null,
         completion: ?struct {
-            dynamicRegistration: ?bool,
+            dynamicRegistration: ?bool = null,
             completionItem: ?struct {
-                snippetSupport: ?bool,
-                commitCharactersSupport: ?bool,
-                documentationFormat: ?[]String,
-                deprecatedSupport: ?bool,
-                preselectSupport: ?bool,
+                snippetSupport: ?bool = null,
+                commitCharactersSupport: ?bool = null,
+                documentationFormat: ?[]String = null,
+                deprecatedSupport: ?bool = null,
+                preselectSupport: ?bool = null,
                 tagSupport: ?struct {
-                    valueSet: ?[]CompletionItemTag,
-                },
-            },
+                    valueSet: ?[]CompletionItemTag = null,
+                } = null,
+            } = null,
             completionItemKind: ?struct {
                 valueSet: ?[]CompletionItemKind,
-            },
-            contextSupport: ?bool,
-        },
+            } = null,
+            contextSupport: ?bool = null,
+        } = null,
         hover: ?struct {
-            dynamicRegistration: ?bool,
-            contentFormat: ?[]String,
-        },
+            dynamicRegistration: ?bool = null,
+            contentFormat: ?[]String = null,
+        } = null,
         signatureHelp: ?struct {
-            dynamicRegistration: ?bool,
+            dynamicRegistration: ?bool = null,
             signatureInformation: ?struct {
-                documentationFormat: ?[]String,
+                documentationFormat: ?[]String = null,
                 parameterInformation: ?struct {
-                    labelOffsetSupport: ?bool,
-                },
-            },
-            contextSupport: ?bool,
-        },
+                    labelOffsetSupport: ?bool = null,
+                } = null,
+            } = null,
+            contextSupport: ?bool = null,
+        } = null,
         references: ?struct {
-            dynamicRegistration: ?bool,
-        },
+            dynamicRegistration: ?bool = null,
+        } = null,
         documentHighlight: ?struct {
-            dynamicRegistration: ?bool,
-        },
+            dynamicRegistration: ?bool = null,
+        } = null,
         documentSymbol: ?struct {
-            dynamicRegistration: ?bool,
+            dynamicRegistration: ?bool = null,
             symbolKind: ?struct {
-                valueSet: ?[]SymbolKind,
-            },
-            hierarchicalDocumentSymbolSupport: ?bool,
-        },
+                valueSet: ?[]SymbolKind = null,
+            } = null,
+            hierarchicalDocumentSymbolSupport: ?bool = null,
+        } = null,
         formatting: ?struct {
-            dynamicRegistration: ?bool,
-        },
+            dynamicRegistration: ?bool = null,
+        } = null,
         rangeFormatting: ?struct {
-            dynamicRegistration: ?bool,
-        },
+            dynamicRegistration: ?bool = null,
+        } = null,
         onTypeFormatting: ?struct {
-            dynamicRegistration: ?bool,
-        },
+            dynamicRegistration: ?bool = null,
+        } = null,
         declaration: ?struct {
-            dynamicRegistration: ?bool,
-            linkSupport: ?bool,
-        },
+            dynamicRegistration: ?bool = null,
+            linkSupport: ?bool = null,
+        } = null,
         definition: ?struct {
-            dynamicRegistration: ?bool,
-            linkSupport: ?bool,
-        },
+            dynamicRegistration: ?bool = null,
+            linkSupport: ?bool = null,
+        } = null,
         typeDefinition: ?struct {
-            dynamicRegistration: ?bool,
-            linkSupport: ?bool,
-        },
+            dynamicRegistration: ?bool = null,
+            linkSupport: ?bool = null,
+        } = null,
         implementation: ?struct {
-            dynamicRegistration: ?bool,
-            linkSupport: ?bool,
-        },
+            dynamicRegistration: ?bool = null,
+            linkSupport: ?bool = null,
+        } = null,
         codeAction: ?struct {
-            dynamicRegistration: ?bool,
+            dynamicRegistration: ?bool = null,
             codeActionLiteralSupport: ?struct {
                 codeActionKind: struct {
                     valueSet: []String,
                 },
-            },
-            isPreferredSupport: ?bool,
-        },
+            } = null,
+            isPreferredSupport: ?bool = null,
+        } = null,
         codeLens: ?struct {
-            dynamicRegistration: ?bool,
-        },
+            dynamicRegistration: ?bool = null,
+        } = null,
         documentLink: ?struct {
-            dynamicRegistration: ?bool,
-            tooltipSupport: ?bool,
-        },
+            dynamicRegistration: ?bool = null,
+            tooltipSupport: ?bool = null,
+        } = null,
         colorProvider: ?struct {
-            dynamicRegistration: ?bool,
-        },
+            dynamicRegistration: ?bool = null,
+        } = null,
         rename: ?struct {
-            dynamicRegistration: ?bool,
-            prepareSupport: ?bool,
-        },
+            dynamicRegistration: ?bool = null,
+            prepareSupport: ?bool = null,
+        } = null,
         publishDiagnostics: ?struct {
-            relatedInformation: ?bool,
+            relatedInformation: ?bool = null,
             tagSupport: ?struct {
                 valueSet: []DiagnosticTag,
-            },
-            versionSupport: ?bool,
-        },
+            } = null,
+            versionSupport: ?bool = null,
+        } = null,
         foldingRange: ?struct {
-            dynamicRegistration: ?bool,
-            rangeLimit: ?bool,
-            lineFoldingOnly: ?bool,
-        },
-    },
-    experimental: ?jsonic.AnyValue,
+            dynamicRegistration: ?bool = null,
+            rangeLimit: ?bool = null,
+            lineFoldingOnly: ?bool = null,
+        } = null,
+    } = null,
+    experimental: ?jsonic.AnyValue = null,
 };
 
 pub const InitializeResult = struct {
@@ -409,34 +411,34 @@ pub const TextDocumentSyncKind = enum {
 };
 
 pub const CompletionOptions = struct {
-    resolveProvider: ?bool,
-    triggerCharacters: ?[]String,
+    resolveProvider: ?bool = null,
+    triggerCharacters: ?[]String = null,
 };
 
 pub const SignatureHelpOptions = struct {
-    triggerCharacters: ?[]String,
-    retriggerCharacters: ?[]String,
+    triggerCharacters: ?[]String = null,
+    retriggerCharacters: ?[]String = null,
 };
 
 pub const CodeActionOptions = struct {
-    codeActionKinds: ?[]String,
+    codeActionKinds: ?[]String = null,
 };
 
 pub const CodeLensOptions = struct {
-    resolveProvider: ?bool,
+    resolveProvider: ?bool = null,
 };
 
 pub const DocumentOnTypeFormattingOptions = struct {
     firstTriggerCharacter: String,
-    moreTriggerCharacter: ?[]String,
+    moreTriggerCharacter: ?[]String = null,
 };
 
 pub const RenameOptions = struct {
-    prepareProvider: ?bool,
+    prepareProvider: ?bool = null,
 };
 
 pub const DocumentLinkOptions = struct {
-    resolveProvider: ?bool,
+    resolveProvider: ?bool = null,
 };
 
 pub const ExecuteCommandOptions = struct {
@@ -444,19 +446,19 @@ pub const ExecuteCommandOptions = struct {
 };
 
 pub const SaveOptions = struct {
-    includeText: ?bool,
+    includeText: ?bool = null,
 };
 
 pub const TextDocumentSyncOptions = struct {
-    openClose: ?bool,
-    change: ?isize,
-    willSave: ?bool,
-    willSaveWaitUntil: ?bool,
-    save: ?SaveOptions,
+    openClose: ?bool = null,
+    change: ?isize = null,
+    willSave: ?bool = null,
+    willSaveWaitUntil: ?bool = null,
+    save: ?SaveOptions = null,
 };
 
 pub const StaticRegistrationOptions = struct {
-    id: ?string,
+    id: ?string = null,
 };
 
 pub const ServerCapabilities = struct {
@@ -510,7 +512,7 @@ pub const MessageType = enum {
 pub const ShowMessageRequestParams = struct {
     type__: MessageType,
     message: String,
-    actions: ?[]MessageActionItem,
+    actions: ?[]MessageActionItem = null,
 };
 
 pub const MessageActionItem = struct {
@@ -525,7 +527,7 @@ pub const LogMessageParams = struct {
 pub const Registration = struct {
     id: String,
     method: String,
-    registerOptions: ?jsonic.AnyValue,
+    registerOptions: ?jsonic.AnyValue = null,
 };
 
 pub const RegistrationParams = struct {
@@ -533,7 +535,7 @@ pub const RegistrationParams = struct {
 };
 
 pub const TextDocumentRegistrationOptions = struct {
-    documentSelector: ?DocumentSelector,
+    documentSelector: ?DocumentSelector = null,
 };
 
 pub const Unregistration = struct {
@@ -568,8 +570,8 @@ pub const ConfigurationParams = struct {
 };
 
 pub const ConfigurationItem = struct {
-    scopeUri: ?DocumentUri,
-    section: ?String,
+    scopeUri: ?DocumentUri = null,
+    section: ?String = null,
 };
 
 pub const DidChangeWatchedFilesParams = struct {
@@ -596,7 +598,7 @@ pub const FileSystemWatcher = struct {
         Created = 1,
         Changed = 2,
         Deleted = 3,
-    },
+    } = null,
 };
 
 pub const WorkspaceSymbolParams = struct {
@@ -608,7 +610,7 @@ pub const WorkspaceSymbolParams = struct {
 pub const ExecuteCommandParams = struct {
     WorkDoneProgressParams: WorkDoneProgressParams,
     command: String,
-    arguments: ?[]jsonic.AnyValue,
+    arguments: ?[]jsonic.AnyValue = null,
 };
 
 pub const ExecuteCommandRegistrationOptions = struct {
@@ -616,13 +618,13 @@ pub const ExecuteCommandRegistrationOptions = struct {
 };
 
 pub const ApplyWorkspaceEditParams = struct {
-    label: ?String,
+    label: ?String = null,
     edit: WorkspaceEdit,
 };
 
 pub const ApplyWorkspaceEditResponse = struct {
     applied: bool,
-    failureReason: ?String,
+    failureReason: ?String = null,
 };
 
 pub const DidOpenTextDocumentParams = struct {
@@ -635,8 +637,8 @@ pub const DidChangeTextDocumentParams = struct {
 };
 
 pub const TextDocumentContentChangeEvent = struct {
-    range: ?Range,
-    rangeLength: ?isize,
+    range: ?Range = null,
+    rangeLength: ?isize = null,
     text: String,
 };
 
@@ -651,17 +653,17 @@ pub const WillSaveTextDocumentParams = struct {
         Manual = 1,
         AfterDelay = 2,
         FocusOut = 3,
-    },
+    } = null,
 };
 
 pub const DidSaveTextDocumentParams = struct {
     textDocument: TextDocumentIdentifier,
-    text: ?String,
+    text: ?String = null,
 };
 
 pub const TextDocumentSaveRegistrationOptions = struct {
     TextDocumentRegistrationOptions: TextDocumentRegistrationOptions,
-    includeText: ?bool,
+    includeText: ?bool = null,
 };
 
 pub const DidCloseTextDocumentParams = struct {
@@ -670,7 +672,7 @@ pub const DidCloseTextDocumentParams = struct {
 
 pub const PublishDiagnosticsParams = struct {
     uri: DocumentUri,
-    version: ?isize,
+    version: ?isize = null,
     diagnostics: []Diagnostic,
 };
 
@@ -678,7 +680,7 @@ pub const CompletionParams = struct {
     TextDocumentPositionParams: TextDocumentPositionParams,
     WorkDoneProgressParams: WorkDoneProgressParams,
     PartialResultParams: PartialResultParams,
-    context: ?CompletionContext,
+    context: ?CompletionContext = null,
 };
 
 pub const CompletionTriggerKind = enum {
@@ -688,8 +690,8 @@ pub const CompletionTriggerKind = enum {
 };
 
 pub const CompletionContext = struct {
-    triggerKind: ?CompletionTriggerKind,
-    triggerCharacter: ?String,
+    triggerKind: ?CompletionTriggerKind = null,
+    triggerCharacter: ?String = null,
 };
 
 pub const CompletionList = struct {
@@ -705,54 +707,54 @@ pub const InsertTextFormat = enum {
 
 pub const CompletionItem = struct {
     label: String,
-    kind: ?CompletionItemKind,
-    tags: ?[]CompletionItemTag,
-    detail: ?String,
-    documentation: ?MarkupContent,
-    preselect: ?bool,
-    sortText: ?String,
-    filterText: ?String,
-    insertText: ?String,
-    insertTextFormat: ?InsertTextFormat,
-    textEdit: ?TextEdit,
-    additionalTextEdits: ?[]TextEdit,
-    commitCharacters: ?[]String,
-    command: ?String,
-    data: ?jsonic.AnyValue,
+    kind: ?CompletionItemKind = null,
+    tags: ?[]CompletionItemTag = null,
+    detail: ?String = null,
+    documentation: ?MarkupContent = null,
+    preselect: ?bool = null,
+    sortText: ?String = null,
+    filterText: ?String = null,
+    insertText: ?String = null,
+    insertTextFormat: ?InsertTextFormat = null,
+    textEdit: ?TextEdit = null,
+    additionalTextEdits: ?[]TextEdit = null,
+    commitCharacters: ?[]String = null,
+    command: ?String = null,
+    data: ?jsonic.AnyValue = null,
 };
 
 pub const CompletionRegistrationOptions = struct {
     TextDocumentRegistrationOptions: TextDocumentRegistrationOptions,
-    triggerCharacters: ?[]String,
-    allCommitCharacters: ?[]String,
-    resolveProvider: ?bool,
+    triggerCharacters: ?[]String = null,
+    allCommitCharacters: ?[]String = null,
+    resolveProvider: ?bool = null,
 };
 
 pub const Hover = struct {
     contents: MarkupContent,
-    range: ?Range,
+    range: ?Range = null,
 };
 
 pub const SignatureHelp = struct {
     signatures: []SignatureInformation,
-    activeSignature: ?isize,
-    activeParameter: ?isize,
+    activeSignature: ?isize = null,
+    activeParameter: ?isize = null,
 };
 
 pub const SignatureInformation = struct {
     label: String,
-    documentation: ?MarkupContent,
-    parameters: ?[]ParameterInformation,
+    documentation: ?MarkupContent = null,
+    parameters: ?[]ParameterInformation = null,
 };
 
 pub const ParameterInformation = struct {
     label: String,
-    documentation: ?MarkupContent,
+    documentation: ?MarkupContent = null,
 };
 
 pub const SignatureHelpRegistrationOptions = struct {
     TextDocumentRegistrationOptions: TextDocumentRegistrationOptions,
-    triggerCharacters: ?[]String,
+    triggerCharacters: ?[]String = null,
 };
 
 pub const ReferenceParams = struct {
@@ -772,7 +774,7 @@ pub const DocumentHighlight = struct {
         Text = 1,
         Read = 2,
         Write = 3,
-    },
+    } = null,
 };
 
 pub const DocumentSymbolParams = struct {
@@ -783,20 +785,20 @@ pub const DocumentSymbolParams = struct {
 
 pub const DocumentSymbol = struct {
     name: String,
-    detail: ?String,
+    detail: ?String = null,
     kind: SymbolKind,
-    deprecated: ?bool,
+    deprecated: ?bool = null,
     range: Range,
     selectionRange: Range,
-    children: ?[]DocumentSymbol,
+    children: ?[]DocumentSymbol = null,
 };
 
 pub const SymbolInformation = struct {
     name: String,
     kind: SymbolKind,
-    deprecated: ?bool,
+    deprecated: ?bool = null,
     location: Location,
-    containerName: ?String,
+    containerName: ?String = null,
 };
 
 pub const CodeActionParams = struct {
@@ -809,16 +811,16 @@ pub const CodeActionParams = struct {
 
 pub const CodeActionContext = struct {
     diagnostics: []Diagnostic,
-    only: ?[]String,
+    only: ?[]String = null,
 };
 
 pub const CodeAction = struct {
     title: String,
-    kind: ?String,
-    diagnostics: ?[]Diagnostic,
-    isPreferred: ?bool,
-    edit: ?WorkspaceEdit,
-    command: ?Command,
+    kind: ?String = null,
+    diagnostics: ?[]Diagnostic = null,
+    isPreferred: ?bool = null,
+    edit: ?WorkspaceEdit = null,
+    command: ?Command = null,
 };
 
 pub const CodeActionRegistrationOptions = struct {
@@ -834,13 +836,13 @@ pub const CodeLensParams = struct {
 
 pub const CodeLens = struct {
     range: Range,
-    command: ?Command,
-    data: ?jsonic.AnyValue,
+    command: ?Command = null,
+    data: ?jsonic.AnyValue = null,
 };
 
 pub const CodeLensRegistrationOptions = struct {
     TextDocumentRegistrationOptions: TextDocumentRegistrationOptions,
-    resolveProvider: ?bool,
+    resolveProvider: ?bool = null,
 };
 
 pub const DocumentLinkParams = struct {
@@ -851,14 +853,14 @@ pub const DocumentLinkParams = struct {
 
 pub const DocumentLink = struct {
     range: Range,
-    target: ?DocumentUri,
-    toolTip: ?String,
-    data: ?jsonic.AnyValue,
+    target: ?DocumentUri = null,
+    toolTip: ?String = null,
+    data: ?jsonic.AnyValue = null,
 };
 
 pub const DocumentLinkRegistrationOptions = struct {
     TextDocumentRegistrationOptions: TextDocumentRegistrationOptions,
-    resolveProvider: ?bool,
+    resolveProvider: ?bool = null,
 };
 
 pub const DocumentColorParams = struct {
@@ -889,8 +891,8 @@ pub const ColorPresentationParams = struct {
 
 pub const ColorPresentation = struct {
     label: String,
-    textEdit: ?TextEdit,
-    additionalTextEdits: ?[]TextEdit,
+    textEdit: ?TextEdit = null,
+    additionalTextEdits: ?[]TextEdit = null,
 };
 
 pub const DocumentFormattingParams = struct {
@@ -902,9 +904,9 @@ pub const DocumentFormattingParams = struct {
 pub const FormattingOptions = struct {
     tabSize: isize,
     insertSpaces: bool,
-    trimTrailingWhitespace: ?bool,
-    insertFinalNewline: ?bool,
-    trimFinalNewlines: ?bool,
+    trimTrailingWhitespace: ?bool = null,
+    insertFinalNewline: ?bool = null,
+    trimFinalNewlines: ?bool = null,
 };
 
 pub const DocumentRangeFormattingParams = struct {
@@ -923,7 +925,7 @@ pub const DocumentOnTypeFormattingParams = struct {
 pub const DocumentOnTypeFormattingRegistrationOptions = struct {
     TextDocumentRegistrationOptions: TextDocumentRegistrationOptions,
     firstTriggerCharacter: String,
-    moreTriggerCharacter: ?[]String,
+    moreTriggerCharacter: ?[]String = null,
 };
 
 pub const RenameParams = struct {
@@ -934,7 +936,7 @@ pub const RenameParams = struct {
 
 pub const RenameRegistrationOptions = struct {
     TextDocumentRegistrationOptions: TextDocumentRegistrationOptions,
-    prepareProvider: ?bool,
+    prepareProvider: ?bool = null,
 };
 
 pub const FoldingRangeParams = struct {
@@ -945,10 +947,10 @@ pub const FoldingRangeParams = struct {
 
 pub const FoldingRange = struct {
     startLine: isize,
-    startCharacter: ?isize,
+    startCharacter: ?isize = null,
     endLine: isize,
-    endCharacter: ?isize,
-    kind: ?String,
+    endCharacter: ?isize = null,
+    kind: ?String = null,
 
     pub const kind_comment = "comment";
     pub const kind_imports = "imports";
@@ -958,11 +960,11 @@ pub const FoldingRange = struct {
 pub const SignatureHelpParams = struct {
     TextDocumentPositionParams: TextDocumentPositionParams,
     WorkDoneProgressParams: WorkDoneProgressParams,
-    context: ?SignatureHelpContext,
+    context: ?SignatureHelpContext = null,
 };
 
 pub const WorkDoneProgressParams = struct {
-    workDoneToken: ?ProgressToken,
+    workDoneToken: ?ProgressToken = null,
 };
 
 pub const WorkDoneProgressCancelParams = struct {
@@ -970,7 +972,7 @@ pub const WorkDoneProgressCancelParams = struct {
 };
 
 pub const PartialResultParams = struct {
-    partialResultToken: ?ProgressToken,
+    partialResultToken: ?ProgressToken = null,
 };
 
 pub const ProgressToken = jsonic.AnyValue;
@@ -983,9 +985,9 @@ pub const ProgressParams = struct {
 pub const WorkDoneProgress = struct {
     kind: String,
     title: String,
-    cancellable: ?bool,
-    message: ?String,
-    percentage: ?isize,
+    cancellable: ?bool = null,
+    message: ?String = null,
+    percentage: ?isize = null,
 
     pub const kind_begin = "begin";
     pub const kind_report = "report";
@@ -993,10 +995,10 @@ pub const WorkDoneProgress = struct {
 };
 
 pub const SignatureHelpContext = struct {
-    triggerKind: ?SignatureHelpTriggerKind,
-    triggerCharacter: ?String,
+    triggerKind: ?SignatureHelpTriggerKind = null,
+    triggerCharacter: ?String = null,
     isRetrigger: bool,
-    activeSignatureHelp: ?SignatureHelp,
+    activeSignatureHelp: ?SignatureHelp = null,
 };
 
 pub const SignatureHelpTriggerKind = enum {
@@ -1042,7 +1044,7 @@ pub const DocumentHighlightParams = struct {
 
 pub const SelectionRange = struct {
     range: Range,
-    parent: ?*SelectionRange,
+    parent: ?*SelectionRange = null,
 };
 
 pub const SelectionRangeParams = struct {
