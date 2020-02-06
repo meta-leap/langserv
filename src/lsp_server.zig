@@ -26,8 +26,11 @@ fn onOutputPrependHeader(owner: *std.mem.Allocator, raw_json_bytes_to_output: []
     callOnOutputHandlerWithHeaderPrependedOrCrash(onOutput, owner, raw_json_bytes_to_output);
 }
 
+var mem_forever: std.heap.ArenaAllocator = undefined;
+
 pub fn forever(in_stream: var) !void {
-    var mem_forever = std.heap.ArenaAllocator.init(jsonrpc.mem_alloc_for_arenas);
+    initialized = null;
+    mem_forever = std.heap.ArenaAllocator.init(jsonrpc.mem_alloc_for_arenas);
     defer mem_forever.deinit();
 
     if (jsonrpc.__.handlers_requests[@enumToInt(api_server_side.RequestIn.initialize)]) |_|
@@ -51,14 +54,16 @@ pub fn forever(in_stream: var) !void {
         const msg_body = headers_and_body[1];
         jsonrpc.incoming(msg_body) catch |err| switch (err) {
             error.OutOfMemory => return err,
-            else => std.debug.warn("\nbad JSON input message triggered '{s}' error:\n{s}\n", .{ @errorName(err), msg_body }),
+            else => std.debug.warn(
+                "\nbad JSON input message triggered '{s}' error:\n{s}\n",
+                .{ @errorName(err), msg_body },
+            ),
         };
     }
 }
 
-fn on_initialize(in: JsonRpc.Arg(InitializeParams)) error{}!JsonRpc.Ret(InitializeResult) {
-    initialized = in.it;
-    std.debug.warn("\n\nINIT\n{}\n\n{}\n\n", .{ in.it, setup });
+fn on_initialize(in: JsonRpc.Arg(InitializeParams)) !JsonRpc.Ret(InitializeResult) {
+    initialized = try zag.mem.fullDeepCopyTo(&mem_forever, in.it);
     return JsonRpc.Ret(InitializeResult){ .ok = setup };
 }
 

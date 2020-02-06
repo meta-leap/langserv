@@ -11,7 +11,7 @@ pub fn setup() void {
 fn onInitialized(in: Arg(InitializedParams)) !void {
     try Server.jsonrpc.notify(.window_showMessage, ShowMessageParams{
         .type__ = .Warning,
-        .message = try std.fmt.allocPrint(in.mem, "Hi: {}", .{Server.initialized.?.processId}),
+        .message = try std.fmt.allocPrint(in.mem, "So you're {} {}", .{ Server.initialized.?.clientInfo.?.name, Server.initialized.?.clientInfo.?.version }),
     });
 }
 
