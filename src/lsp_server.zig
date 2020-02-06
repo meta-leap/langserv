@@ -32,12 +32,6 @@ pub const Server = struct {
     pub fn forever(me: *Server, in_stream: var) !void {
         me.api.owner = me;
         me.initialized = null;
-        name_for_own_req_ids = me.setup.serverInfo.?.name;
-        me.__mem_forever = std.heap.ArenaAllocator.init(me.api.mem_alloc_for_arenas);
-        defer {
-            me.__mem_forever.deinit();
-            me.__mem_forever = undefined;
-        }
 
         if (me.api.__.handlers_requests[@enumToInt(api_server_side.RequestIn.initialize)]) |_|
             return error.CallerAlreadySubscribedToLspServerReservedInitializeMsg;
@@ -45,6 +39,15 @@ pub const Server = struct {
             return error.CallerAlreadySubscribedToLspServerReservedCancelRequestMsg;
         if (me.api.__.handlers_notifies[@enumToInt(api_server_side.NotifyIn.exit)]) |_|
             return error.CallerAlreadySubscribedToLspServerReservedExitMsg;
+
+        if (name_for_own_req_ids.len == 0)
+            name_for_own_req_ids = me.setup.serverInfo.?.name;
+        me.__mem_forever = std.heap.ArenaAllocator.init(me.api.mem_alloc_for_arenas);
+        defer {
+            me.__mem_forever.deinit();
+            me.__mem_forever = undefined;
+            me.initialized = null;
+        }
 
         me.api.onRequest(.initialize, on_initialize);
         me.api.onNotify(.__cancelRequest, on_cancel);
@@ -75,7 +78,7 @@ fn on_initialize(in: LspApi.In(InitializeParams)) !jsonic.Rpc.Result(InitializeR
 }
 
 fn on_cancel(in: LspApi.In(CancelParams)) error{}!void {
-    // TODO
+    // no-op until we go multi-threaded, if ever
 }
 
 fn on_exit(in: LspApi.In(void)) error{}!void {

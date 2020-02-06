@@ -12,7 +12,7 @@ fn onInitialized(in: Server.In(InitializedParams)) !void {
     std.debug.warn("\nINIT\t{}\n", .{in.it});
     try in.ctx.api.notify(.window_showMessage, ShowMessageParams{
         .type__ = .Warning,
-        .message = try std.fmt.allocPrint(in.mem, "So it's you... {} {}.", .{
+        .message = try std.fmt.allocPrint(in.mem, "So it's you.. {} {}.", .{
             in.ctx.initialized.?.clientInfo.?.name,
             in.ctx.initialized.?.clientInfo.?.version,
         }),
