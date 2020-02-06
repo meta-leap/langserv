@@ -8,11 +8,11 @@ pub fn setup() void {
     Server.jsonrpc.onRequest(.shutdown, onShutdown);
 }
 
-fn onInitialized(in: Arg(InitializedParams)) void {
-    Server.jsonrpc.notify(.window_showMessage, ShowMessageParams{
+fn onInitialized(in: Arg(InitializedParams)) !void {
+    try Server.jsonrpc.notify(.window_showMessage, ShowMessageParams{
         .type__ = .Warning,
         .message = "Hola Welt!",
-    }) catch |err| @panic(@errorName(err));
+    });
 }
 
 fn onShutdown(in: Arg(void)) Ret(void) {

@@ -54,10 +54,10 @@ fn on_initialize(in: JsonRpc.Arg(InitializeParams)) JsonRpc.Ret(InitializeResult
     return .{ .ok = setup };
 }
 
-fn on_cancel(in: JsonRpc.Arg(CancelParams)) void {
+fn on_cancel(in: JsonRpc.Arg(CancelParams)) anyerror!void {
     // TODO
 }
 
-fn on_exit(in: JsonRpc.Arg(void)) void {
+fn on_exit(in: JsonRpc.Arg(void)) anyerror!void {
     std.os.exit(0);
 }

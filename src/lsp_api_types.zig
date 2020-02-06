@@ -1,7 +1,7 @@
 const std = @import("std");
 const jsonic = @import("../../jsonic/api.zig");
 
-// TODO: catch up on spec changes since last check of: 22 Jan 2020
+// TODO: catch up on spec changes since last check of: 06 Feb 2020
 
 pub const String = []const u8;
 
@@ -153,6 +153,7 @@ pub const MarkupContent = struct {
 };
 
 pub const InitializeParams = struct {
+    WorkDoneProgressParams: WorkDoneProgressParams,
     processId: ?isize,
     clientInfo: ?struct {
         name: String,
@@ -555,7 +556,7 @@ pub const DidChangeWorkspaceFoldersParams = struct {
 
 pub const WorkspaceFoldersChangeEvent = struct {
     added: []WorkspaceFolder,
-    removded: []WorkspaceFolder,
+    removed: []WorkspaceFolder,
 };
 
 pub const DidChangeConfigurationParams = struct {
@@ -708,7 +709,6 @@ pub const CompletionItem = struct {
     tags: ?[]CompletionItemTag,
     detail: ?String,
     documentation: ?MarkupContent,
-    deprecated: ?bool,
     preselect: ?bool,
     sortText: ?String,
     filterText: ?String,
@@ -915,8 +915,7 @@ pub const DocumentRangeFormattingParams = struct {
 };
 
 pub const DocumentOnTypeFormattingParams = struct {
-    textDocument: TextDocumentIdentifier,
-    position: Position,
+    TextDocumentPositionParams: TextDocumentPositionParams,
     ch: String,
     options: FormattingOptions,
 };
@@ -964,6 +963,10 @@ pub const SignatureHelpParams = struct {
 
 pub const WorkDoneProgressParams = struct {
     workDoneToken: ?ProgressToken,
+};
+
+pub const WorkDoneProgressCancelParams = struct {
+    token: ProgressToken,
 };
 
 pub const PartialResultParams = struct {
