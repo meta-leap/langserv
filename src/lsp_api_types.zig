@@ -414,12 +414,6 @@ pub const WorkDoneProgressOptions = struct {
     workDoneProgress: ?bool = null,
 };
 
-pub const CodeLensOptions = struct {
-    WorkDoneProgressOptions: ?WorkDoneProgressOptions = null,
-    TextDocumentRegistrationOptions: ?TextDocumentRegistrationOptions = null,
-    resolveProvider: ?bool = null,
-};
-
 pub const DocumentOnTypeFormattingOptions = struct {
     firstTriggerCharacter: String,
     moreTriggerCharacter: ?[]String = null,
@@ -521,6 +515,12 @@ pub const ServerCapabilities = struct {
         options: SelectionRangeOptions,
     } = null,
     experimental: ?jsonic.AnyValue = null,
+
+    pub const CodeLensOptions = struct {
+        WorkDoneProgressOptions: ?WorkDoneProgressOptions = null,
+        TextDocumentRegistrationOptions: ?TextDocumentRegistrationOptions = null,
+        resolveProvider: ?bool = null,
+    };
 
     pub const WorkspaceOptions = struct {
         workspaceFolders: ?WorkspaceFoldersServerCapabilities = null,
