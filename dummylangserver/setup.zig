@@ -19,6 +19,10 @@ pub fn setupCapabilitiesAndHandlers(srv: *Server) void {
     };
     srv.api.onRequest(.textDocument_completion, onCompletion);
     srv.api.onRequest(.completionItem_resolve, onCompletionResolve);
+
+    // FMT
+    srv.precis.capabilities.documentRangeFormattingProvider = .{ .enabled = true };
+    srv.api.onRequest(.textDocument_rangeFormatting, onFormatting);
 }
 
 fn onInitialized(ctx: Server.Ctx(InitializedParams)) !void {
@@ -73,4 +77,8 @@ fn onCompletionResolve(ctx: Server.Ctx(CompletionItem)) !Result(CompletionItem) 
     if (item.insertText) |insert_text|
         item.documentation = .{ .value = try std.fmt.allocPrint(ctx.mem, "Above is current `" ++ @typeName(CompletionItemKind) ++ ".sortText`, and its `.insertText` is: `\"{s}\"`.", .{insert_text}) };
     return Result(CompletionItem){ .ok = item };
+}
+
+fn onFormatting(ctx: Server.Ctx(DocumentRangeFormattingParams)) error{}!Result(?[]TextEdit) {
+    return Result(?[]TextEdit){ .ok = null };
 }
