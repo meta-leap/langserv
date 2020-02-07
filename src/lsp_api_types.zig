@@ -265,7 +265,7 @@ pub const ClientCapabilities = struct {
         configuration: ?bool = null,
     } = null,
     textDocument: ?TextDocumentClientCapabilities = null,
-    experimental: ?jsonic.AnyValue = null,
+    // experimental: ?jsonic.AnyValue = null,
 
     pub const ExecuteCommandClientCapabilities = struct {
         dynamicRegistration: ?bool = null,
@@ -306,16 +306,51 @@ pub const ClientCapabilities = struct {
     };
 
     pub const TextDocumentClientCapabilities = struct {
-        selectionRange: ?struct {
+        selectionRange: ?SelectionRangeClientCapabilities = null,
+        synchronization: ?TextDocumentSyncClientCapabilities = null,
+        completion: ?CompletionClientCapabilities = null,
+        hover: ?HoverClientCapabilities = null,
+        signatureHelp: ?SignatureHelpClientCapabilities = null,
+        references: ?ReferenceClientCapabilities = null,
+        documentHighlight: ?DocumentHighlightClientCapabilities = null,
+        documentSymbol: ?DocumentSymbolClientCapabilities = null,
+        formatting: ?DocumentFormattingClientCapabilities = null,
+        rangeFormatting: ?DocumentRangeFormattingClientCapabilities = null,
+        onTypeFormatting: ?DocumentOnTypeFormattingClientCapabilities = null,
+        declaration: ?DeclarationClientCapabilities = null,
+        definition: ?DefinitionClientCapabilities = null,
+        typeDefinition: ?TypeDefinitionClientCapabilities = null,
+        implementation: ?ImplementationClientCapabilities = null,
+        codeAction: ?CodeActionClientCapabilities = null,
+        codeLens: ?CodeLensClientCapabilities = null,
+        documentLink: ?DocumentLinkClientCapabilities = null,
+        colorProvider: ?DocumentColorClientCapabilities = null,
+        rename: ?RenameClientCapabilities = null,
+        publishDiagnostics: ?PublishDiagnosticsClientCapabilities = null,
+        foldingRange: ?FoldingRangeClientCapabilities = null,
+
+        pub const FoldingRangeClientCapabilities = struct {
             dynamicRegistration: ?bool = null,
-        } = null,
-        synchronization: ?struct {
+            rangeLimit: ?isize = null,
+            lineFoldingOnly: ?bool = null,
+        };
+        pub const CodeLensClientCapabilities = struct {
+            dynamicRegistration: ?bool = null,
+        };
+        pub const DocumentLinkClientCapabilities = struct {
+            dynamicRegistration: ?bool = null,
+            tooltipSupport: ?bool = null,
+        };
+        pub const DocumentColorClientCapabilities = struct {
+            dynamicRegistration: ?bool = null,
+        };
+        pub const TextDocumentSyncClientCapabilities = struct {
             dynamicRegistration: ?bool = null,
             willSave: ?bool = null,
             willSaveWaitUntil: ?bool = null,
             didSave: ?bool = null,
-        } = null,
-        completion: ?struct {
+        };
+        pub const CompletionClientCapabilities = struct {
             dynamicRegistration: ?bool = null,
             completionItem: ?struct {
                 snippetSupport: ?bool = null,
@@ -331,12 +366,15 @@ pub const ClientCapabilities = struct {
                 valueSet: ?[]CompletionItemKind,
             } = null,
             contextSupport: ?bool = null,
-        } = null,
-        hover: ?struct {
+        };
+        pub const SelectionRangeClientCapabilities = struct {
+            dynamicRegistration: ?bool = null,
+        };
+        pub const HoverClientCapabilities = struct {
             dynamicRegistration: ?bool = null,
             contentFormat: ?[]String = null,
-        } = null,
-        signatureHelp: ?struct {
+        };
+        pub const SignatureHelpClientCapabilities = struct {
             dynamicRegistration: ?bool = null,
             signatureInformation: ?struct {
                 documentationFormat: ?[]String = null,
@@ -345,46 +383,57 @@ pub const ClientCapabilities = struct {
                 } = null,
             } = null,
             contextSupport: ?bool = null,
-        } = null,
-        references: ?struct {
+        };
+        pub const DeclarationClientCapabilities = struct {
             dynamicRegistration: ?bool = null,
-        } = null,
-        documentHighlight: ?struct {
+            linkSupport: ?bool = null,
+        };
+        pub const DefinitionClientCapabilities = struct {
             dynamicRegistration: ?bool = null,
-        } = null,
-        documentSymbol: ?struct {
+            linkSupport: ?bool = null,
+        };
+        pub const ReferenceClientCapabilities = struct {
+            dynamicRegistration: ?bool = null,
+        };
+        pub const DocumentHighlightClientCapabilities = struct {
+            dynamicRegistration: ?bool = null,
+        };
+        pub const DocumentSymbolClientCapabilities = struct {
             dynamicRegistration: ?bool = null,
             symbolKind: ?struct {
                 valueSet: ?[]SymbolKind = null,
             } = null,
             hierarchicalDocumentSymbolSupport: ?bool = null,
-        } = null,
-        formatting: ?struct {
+        };
+        pub const DocumentFormattingClientCapabilities = struct {
             dynamicRegistration: ?bool = null,
-        } = null,
-        rangeFormatting: ?struct {
+        };
+        pub const DocumentRangeFormattingClientCapabilities = struct {
             dynamicRegistration: ?bool = null,
-        } = null,
-        onTypeFormatting: ?struct {
+        };
+        pub const DocumentOnTypeFormattingClientCapabilities = struct {
             dynamicRegistration: ?bool = null,
-        } = null,
-        declaration: ?struct {
+        };
+        pub const RenameClientCapabilities = struct {
+            dynamicRegistration: ?bool = null,
+            prepareSupport: ?bool = null,
+        };
+        pub const PublishDiagnosticsClientCapabilities = struct {
+            relatedInformation: ?bool = null,
+            tagSupport: ?struct {
+                valueSet: []DiagnosticTag,
+            } = null,
+            versionSupport: ?bool = null,
+        };
+        pub const TypeDefinitionClientCapabilities = struct {
             dynamicRegistration: ?bool = null,
             linkSupport: ?bool = null,
-        } = null,
-        definition: ?struct {
+        };
+        pub const ImplementationClientCapabilities = struct {
             dynamicRegistration: ?bool = null,
             linkSupport: ?bool = null,
-        } = null,
-        typeDefinition: ?struct {
-            dynamicRegistration: ?bool = null,
-            linkSupport: ?bool = null,
-        } = null,
-        implementation: ?struct {
-            dynamicRegistration: ?bool = null,
-            linkSupport: ?bool = null,
-        } = null,
-        codeAction: ?struct {
+        };
+        pub const CodeActionClientCapabilities = struct {
             dynamicRegistration: ?bool = null,
             codeActionLiteralSupport: ?struct {
                 codeActionKind: struct {
@@ -392,33 +441,7 @@ pub const ClientCapabilities = struct {
                 },
             } = null,
             isPreferredSupport: ?bool = null,
-        } = null,
-        codeLens: ?struct {
-            dynamicRegistration: ?bool = null,
-        } = null,
-        documentLink: ?struct {
-            dynamicRegistration: ?bool = null,
-            tooltipSupport: ?bool = null,
-        } = null,
-        colorProvider: ?struct {
-            dynamicRegistration: ?bool = null,
-        } = null,
-        rename: ?struct {
-            dynamicRegistration: ?bool = null,
-            prepareSupport: ?bool = null,
-        } = null,
-        publishDiagnostics: ?struct {
-            relatedInformation: ?bool = null,
-            tagSupport: ?struct {
-                valueSet: []DiagnosticTag,
-            } = null,
-            versionSupport: ?bool = null,
-        } = null,
-        foldingRange: ?struct {
-            dynamicRegistration: ?bool = null,
-            rangeLimit: ?bool = null,
-            lineFoldingOnly: ?bool = null,
-        } = null,
+        };
     };
 };
 
@@ -540,7 +563,7 @@ pub const ServerCapabilities = struct {
         enabled: bool,
         options: SelectionRangeOptions,
     } = null,
-    experimental: ?jsonic.AnyValue = null,
+    // experimental: ?jsonic.AnyValue = null,
 
     pub const CodeLensOptions = struct {
         WorkDoneProgressOptions: ?WorkDoneProgressOptions = null,
@@ -863,7 +886,7 @@ pub const CompletionContext = struct {
 };
 
 pub const CompletionList = struct {
-    isIncomplete: bool,
+    isIncomplete: bool = false,
     items: []CompletionItem,
 };
 
@@ -888,7 +911,7 @@ pub const CompletionItem = struct {
     additionalTextEdits: ?[]TextEdit = null,
     commitCharacters: ?[]String = null,
     command: ?String = null,
-    data: ?jsonic.AnyValue = null,
+    // data: ?jsonic.AnyValue = null,
 };
 
 pub const Hover = struct {
@@ -988,7 +1011,7 @@ pub const CodeLensParams = struct {
 pub const CodeLens = struct {
     range: Range,
     command: ?Command = null,
-    data: ?jsonic.AnyValue = null,
+    // data: ?jsonic.AnyValue = null,
 };
 
 pub const DocumentLinkParams = struct {
@@ -1001,7 +1024,7 @@ pub const DocumentLink = struct {
     range: Range,
     target: ?DocumentUri = null,
     toolTip: ?String = null,
-    data: ?jsonic.AnyValue = null,
+    // data: ?jsonic.AnyValue = null,
 };
 
 pub const DocumentColorParams = struct {

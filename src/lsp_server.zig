@@ -9,7 +9,7 @@ usingnamespace @import("./lsp_common.zig");
 const LspApi = jsonic.Rpc.Api(Server, api_server_side, JsonOptions);
 
 pub const Server = struct {
-    pub const In = LspApi.In;
+    pub const Ctx = LspApi.Ctx;
 
     precis: InitializeResult = InitializeResult{
         .capabilities = ServerCapabilities{},
@@ -72,15 +72,16 @@ pub const Server = struct {
     }
 };
 
-fn on_initialize(in: LspApi.In(InitializeParams)) !jsonic.Rpc.Result(InitializeResult) {
-    in.ctx.initialized = try zag.mem.fullDeepCopyTo(&in.ctx.__mem_forever, in.it);
-    return jsonic.Rpc.Result(InitializeResult){ .ok = in.ctx.precis };
+fn on_initialize(ctx: LspApi.Ctx(InitializeParams)) !jsonic.Rpc.Result(InitializeResult) {
+    const me: *Server = ctx.inst;
+    me.initialized = try zag.mem.fullDeepCopyTo(&me.__mem_forever, ctx.value);
+    return jsonic.Rpc.Result(InitializeResult){ .ok = me.precis };
 }
 
-fn on_cancel(in: LspApi.In(CancelParams)) error{}!void {
+fn on_cancel(ctx: LspApi.Ctx(CancelParams)) error{}!void {
     // no-op until we go multi-threaded, if ever
 }
 
-fn on_exit(in: LspApi.In(void)) error{}!void {
+fn on_exit(ctx: LspApi.Ctx(void)) error{}!void {
     std.os.exit(0);
 }
