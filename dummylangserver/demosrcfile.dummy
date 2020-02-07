@@ -235,7 +235,7 @@
                     "tooltipSupport": true
                 },
                 "typeDefinition": {
-                    "dynamicRegistration": true,
+                    "dynamic.Registration": true,
                     "linkSupport": true
                 },
                 "implementation": {

@@ -54,7 +54,7 @@ fn onHover(ctx: Server.Ctx(HoverParams)) !Result(?Hover) {
 
 fn onCompletion(ctx: Server.Ctx(CompletionParams)) !Result(?CompletionList) {
     var cmpls = try std.ArrayList(CompletionItem).initCapacity(ctx.mem, 8);
-    try cmpls.append(CompletionItem{ .label = "CompletionItemKind members:", .sortText = "000" });
+    try cmpls.append(CompletionItem{ .label = @typeName(CompletionItemKind) ++ " members:", .sortText = "000" });
     inline for (@typeInfo(CompletionItemKind).Enum.fields) |*enum_field| {
         var item = CompletionItem{
             .label = try std.fmt.allocPrint(ctx.mem, "\t.{s} =\t{d}", .{ enum_field.name, enum_field.value }),
@@ -71,6 +71,6 @@ fn onCompletionResolve(ctx: Server.Ctx(CompletionItem)) !Result(CompletionItem) 
     var item = ctx.value;
     item.detail = item.sortText;
     if (item.insertText) |insert_text|
-        item.documentation = .{ .value = try std.fmt.allocPrint(ctx.mem, "Above is current `CompletionItem.sortText`, and its `.insertText` is: `\"{s}\"`.", .{insert_text}) };
+        item.documentation = .{ .value = try std.fmt.allocPrint(ctx.mem, "Above is current `" ++ @typeName(CompletionItemKind) ++ ".sortText`, and its `.insertText` is: `\"{s}\"`.", .{insert_text}) };
     return Result(CompletionItem){ .ok = item };
 }
