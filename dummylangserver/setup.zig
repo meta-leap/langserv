@@ -7,8 +7,14 @@ pub fn setupCapabilitiesAndHandlers(lsp: *Server) void {
     lsp.api.onNotify(.initialized, onInitialized);
     lsp.api.onRequest(.shutdown, onShutdown);
 
-    lsp.setup.capabilities.hoverProvider = true;
+    lsp.precis.capabilities.hoverProvider = .{ .enabled = true };
     lsp.api.onRequest(.textDocument_hover, onHover);
+
+    lsp.precis.capabilities.completionProvider = .{
+        .triggerCharacters = &[_]String{"."},
+        .allCommitCharacters = &[_]String{"\t"},
+        .resolveProvider = true,
+    };
 }
 
 fn onInitialized(in: Server.In(InitializedParams)) !void {
@@ -26,7 +32,7 @@ fn onShutdown(in: Server.In(void)) error{}!Result(void) {
     return Result(void){ .ok = {} };
 }
 
-fn onHover(in: Server.In(HoverParams)) error{}!Result(?Hover) {
-    const markdown = "This **is** a *markdown* hover example.. including `code` formatting or ~~strikethru~~ even.";
+fn onHover(in: Server.In(HoverParams)) !Result(?Hover) {
+    const markdown = try std.fmt.allocPrint(in.mem, "Hover request:\n\n```zig\n{}\n```\n", .{in.it});
     return Result(?Hover){ .ok = Hover{ .contents = MarkupContent{ .value = markdown } } };
 }

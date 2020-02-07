@@ -11,7 +11,7 @@ const LspApi = jsonic.Rpc.Api(Server, api_server_side, JsonOptions);
 pub const Server = struct {
     pub const In = LspApi.In;
 
-    setup: InitializeResult = InitializeResult{
+    precis: InitializeResult = InitializeResult{
         .capabilities = ServerCapabilities{},
         .serverInfo = .{ .name = "unnamed" },
     },
@@ -22,10 +22,6 @@ pub const Server = struct {
         .mem_alloc_for_arenas = std.heap.page_allocator,
         .onOutgoing = onOutputPrependHeader,
     },
-
-    fn onOutputPrependHeader(me: *Server, owner: *std.mem.Allocator, raw_json_bytes_to_output: []const u8) void {
-        callOnOutputHandlerWithHeaderPrependedOrCrash(me.onOutput, owner, raw_json_bytes_to_output);
-    }
 
     __mem_forever: std.heap.ArenaAllocator = undefined,
 
@@ -41,7 +37,7 @@ pub const Server = struct {
             return error.CallerAlreadySubscribedToLspServerReservedExitMsg;
 
         if (name_for_own_req_ids.len == 0)
-            name_for_own_req_ids = me.setup.serverInfo.?.name;
+            name_for_own_req_ids = me.precis.serverInfo.?.name;
         me.__mem_forever = std.heap.ArenaAllocator.init(me.api.mem_alloc_for_arenas);
         defer {
             me.__mem_forever.deinit();
@@ -70,11 +66,15 @@ pub const Server = struct {
             };
         }
     }
+
+    fn onOutputPrependHeader(me: *Server, owner: *std.mem.Allocator, raw_json_bytes_to_output: []const u8) void {
+        callOnOutputHandlerWithHeaderPrependedOrCrash(me.onOutput, owner, raw_json_bytes_to_output);
+    }
 };
 
 fn on_initialize(in: LspApi.In(InitializeParams)) !jsonic.Rpc.Result(InitializeResult) {
     in.ctx.initialized = try zag.mem.fullDeepCopyTo(&in.ctx.__mem_forever, in.it);
-    return jsonic.Rpc.Result(InitializeResult){ .ok = in.ctx.setup };
+    return jsonic.Rpc.Result(InitializeResult){ .ok = in.ctx.precis };
 }
 
 fn on_cancel(in: LspApi.In(CancelParams)) error{}!void {

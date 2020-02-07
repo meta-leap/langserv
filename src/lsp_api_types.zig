@@ -410,21 +410,13 @@ pub const TextDocumentSyncKind = enum {
     Incremental = 2,
 };
 
-pub const CompletionOptions = struct {
-    resolveProvider: ?bool = null,
-    triggerCharacters: ?[]String = null,
-};
-
-pub const SignatureHelpOptions = struct {
-    triggerCharacters: ?[]String = null,
-    retriggerCharacters: ?[]String = null,
-};
-
-pub const CodeActionOptions = struct {
-    codeActionKinds: ?[]String = null,
+pub const WorkDoneProgressOptions = struct {
+    workDoneProgress: ?bool = null,
 };
 
 pub const CodeLensOptions = struct {
+    WorkDoneProgressOptions: ?WorkDoneProgressOptions = null,
+    TextDocumentRegistrationOptions: ?TextDocumentRegistrationOptions = null,
     resolveProvider: ?bool = null,
 };
 
@@ -433,16 +425,10 @@ pub const DocumentOnTypeFormattingOptions = struct {
     moreTriggerCharacter: ?[]String = null,
 };
 
-pub const RenameOptions = struct {
-    prepareProvider: ?bool = null,
-};
-
 pub const DocumentLinkOptions = struct {
+    WorkDoneProgressOptions: ?WorkDoneProgressOptions = null,
+    TextDocumentRegistrationOptions: TextDocumentRegistrationOptions,
     resolveProvider: ?bool = null,
-};
-
-pub const ExecuteCommandOptions = struct {
-    commands: []String,
 };
 
 pub const SaveOptions = struct {
@@ -451,47 +437,203 @@ pub const SaveOptions = struct {
 
 pub const TextDocumentSyncOptions = struct {
     openClose: ?bool = null,
-    change: ?isize = null,
+    change: ?TextDocumentSyncKind = null,
     willSave: ?bool = null,
     willSaveWaitUntil: ?bool = null,
     save: ?SaveOptions = null,
 };
 
 pub const StaticRegistrationOptions = struct {
-    id: ?string = null,
+    id: ?String = null,
 };
 
 pub const ServerCapabilities = struct {
-    textDocumentSync: ?TextDocumentSyncOptions = null,
-    hoverProvider: ?bool = null,
+    textDocumentSync: ?union(enum) {
+        legacy: TextDocumentSyncKind,
+        options: TextDocumentSyncOptions,
+    } = null,
     completionProvider: ?CompletionOptions = null,
+    hoverProvider: ?union(enum) {
+        enabled: bool,
+        options: HoverOptions,
+    } = null,
     signatureHelpProvider: ?SignatureHelpOptions = null,
-    definitionProvider: ?bool = null,
-    typeDefinitionProvider: ?bool = null,
-    implementationProvider: ?bool = null,
-    referencesProvider: ?bool = null,
-    documentHighlightProvider: ?bool = null,
-    documentSymbolProvider: ?bool = null,
-    workspaceSymbolProvider: ?bool = null,
-    codeActionProvider: ?bool = null,
+    definitionProvider: ?union(enum) {
+        enabled: bool,
+        options: DefinitionOptions,
+    } = null,
+    typeDefinitionProvider: ?union(enum) {
+        enabled: bool,
+        options: TypeDefinitionOptions,
+    } = null,
+    implementationProvider: ?union(enum) {
+        enabled: bool,
+        options: ImplementationOptions,
+    } = null,
+    referencesProvider: ?union(enum) {
+        enabled: bool,
+        options: ReferenceOptions,
+    } = null,
+    documentHighlightProvider: ?union(enum) {
+        enabled: bool,
+        options: DocumentHighlightOptions,
+    } = null,
+    documentSymbolProvider: ?union(enum) {
+        enabled: bool,
+        options: DocumentSymbolOptions,
+    } = null,
+    workspaceSymbolProvider: ?union(enum) {
+        enabled: bool,
+        options: WorkspaceSymbolOptions,
+    } = null,
+    codeActionProvider: ?union(enum) {
+        enabled: bool,
+        options: CodeActionOptions,
+    } = null,
     codeLensProvider: ?CodeLensOptions = null,
-    documentFormattingProvider: ?bool = null,
-    documentRangeFormattingProvider: ?bool = null,
+    documentFormattingProvider: ?union(enum) {
+        enabled: bool,
+        options: DocumentFormattingOptions,
+    } = null,
+    documentRangeFormattingProvider: ?union(enum) {
+        enabled: bool,
+        options: DocumentRangeFormattingOptions,
+    } = null,
     documentOnTypeFormattingProvider: ?DocumentOnTypeFormattingOptions = null,
-    renameProvider: ?bool = null,
+    renameProvider: ?union(enum) {
+        enabled: bool,
+        options: RenameOptions,
+    } = null,
     documentLinkProvider: ?DocumentLinkOptions = null,
     colorProvider: ?bool = null,
-    foldingRangeProvider: ?bool = null,
-    declarationProvider: ?bool = null,
-    executeCommandProvider: ?ExecuteCommandOptions = null,
-    workspace: ?struct {
-        workspaceFolders: ?struct {
-            supported: ?bool = null,
-            changeNotifications: ?bool = null,
-        } = null,
+    foldingRangeProvider: ?union(enum) {
+        enabled: bool,
+        options: FoldingRangeOptions,
     } = null,
-    selectionRangeProvider: ?bool = null,
+    declarationProvider: ?union(enum) {
+        enabled: bool,
+        options: DeclarationOptions,
+    } = null,
+    executeCommandProvider: ?ExecuteCommandOptions = null,
+    workspace: ?WorkspaceOptions = null,
+    selectionRangeProvider: ?union(enum) {
+        enabled: bool,
+        options: SelectionRangeOptions,
+    } = null,
     experimental: ?jsonic.AnyValue = null,
+
+    pub const WorkspaceOptions = struct {
+        workspaceFolders: ?WorkspaceFoldersServerCapabilities = null,
+    };
+
+    pub const WorkspaceFoldersServerCapabilities = struct {
+        supported: ?bool = null,
+        changeNotifications: ?union(enum) {
+            enabled: bool,
+            registrationId: String,
+        } = null,
+    };
+
+    pub const ExecuteCommandOptions = struct {
+        WorkDoneProgressOptions: ?WorkDoneProgressOptions = null,
+        commands: []String,
+    };
+
+    pub const CodeActionOptions = struct {
+        WorkDoneProgressOptions: ?WorkDoneProgressOptions = null,
+        TextDocumentRegistrationOptions: ?TextDocumentRegistrationOptions = null,
+        codeActionKinds: ?[]String = null,
+    };
+
+    pub const RenameOptions = struct {
+        WorkDoneProgressOptions: ?WorkDoneProgressOptions = null,
+        TextDocumentRegistrationOptions: ?TextDocumentRegistrationOptions = null,
+        prepareProvider: ?bool = null,
+    };
+
+    pub const DefinitionOptions = struct {
+        WorkDoneProgressOptions: ?WorkDoneProgressOptions = null,
+        TextDocumentRegistrationOptions: ?TextDocumentRegistrationOptions = null,
+    };
+
+    pub const TypeDefinitionOptions = struct {
+        WorkDoneProgressOptions: ?WorkDoneProgressOptions = null,
+        TextDocumentRegistrationOptions: ?TextDocumentRegistrationOptions = null,
+        StaticRegistrationOptions: ?StaticRegistrationOptions = null,
+    };
+
+    pub const ImplementationOptions = struct {
+        WorkDoneProgressOptions: ?WorkDoneProgressOptions = null,
+        StaticRegistrationOptions: ?StaticRegistrationOptions = null,
+        TextDocumentRegistrationOptions: ?TextDocumentRegistrationOptions = null,
+    };
+
+    pub const ReferenceOptions = struct {
+        WorkDoneProgressOptions: ?WorkDoneProgressOptions = null,
+        TextDocumentRegistrationOptions: ?TextDocumentRegistrationOptions = null,
+    };
+
+    pub const DocumentHighlightOptions = struct {
+        WorkDoneProgressOptions: ?WorkDoneProgressOptions = null,
+        TextDocumentRegistrationOptions: ?TextDocumentRegistrationOptions = null,
+    };
+
+    pub const DocumentSymbolOptions = struct {
+        WorkDoneProgressOptions: ?WorkDoneProgressOptions = null,
+        TextDocumentRegistrationOptions: ?TextDocumentRegistrationOptions = null,
+    };
+
+    pub const DocumentFormattingOptions = struct {
+        WorkDoneProgressOptions: ?WorkDoneProgressOptions = null,
+        TextDocumentRegistrationOptions: ?TextDocumentRegistrationOptions = null,
+    };
+
+    pub const DocumentRangeFormattingOptions = struct {
+        WorkDoneProgressOptions: ?WorkDoneProgressOptions = null,
+        TextDocumentRegistrationOptions: ?TextDocumentRegistrationOptions = null,
+    };
+
+    pub const FoldingRangeOptions = struct {
+        WorkDoneProgressOptions: ?WorkDoneProgressOptions = null,
+        TextDocumentRegistrationOptions: ?TextDocumentRegistrationOptions = null,
+        StaticRegistrationOptions: ?StaticRegistrationOptions = null,
+    };
+
+    pub const SelectionRangeOptions = struct {
+        WorkDoneProgressOptions: ?WorkDoneProgressOptions = null,
+        TextDocumentRegistrationOptions: ?TextDocumentRegistrationOptions = null,
+        StaticRegistrationOptions: ?StaticRegistrationOptions = null,
+    };
+
+    pub const CompletionOptions = struct {
+        WorkDoneProgressOptions: ?WorkDoneProgressOptions = null,
+        TextDocumentRegistrationOptions: ?TextDocumentRegistrationOptions = null,
+        resolveProvider: ?bool = null,
+        triggerCharacters: ?[]String = null,
+        allCommitCharacters: ?[]String = null,
+    };
+
+    pub const HoverOptions = struct {
+        WorkDoneProgressOptions: ?WorkDoneProgressOptions = null,
+        TextDocumentRegistrationOptions: ?TextDocumentRegistrationOptions = null,
+    };
+
+    pub const SignatureHelpOptions = struct {
+        WorkDoneProgressOptions: ?WorkDoneProgressOptions = null,
+        TextDocumentRegistrationOptions: ?TextDocumentRegistrationOptions = null,
+        triggerCharacters: ?[]String = null,
+        retriggerCharacters: ?[]String = null,
+    };
+
+    pub const WorkspaceSymbolOptions = struct {
+        WorkDoneProgressOptions: ?WorkDoneProgressOptions = null,
+    };
+
+    pub const DeclarationOptions = struct {
+        WorkDoneProgressOptions: ?WorkDoneProgressOptions = null,
+        TextDocumentRegistrationOptions: ?TextDocumentRegistrationOptions = null,
+        StaticRegistrationOptions: ?StaticRegistrationOptions = null,
+    };
 };
 
 pub const InitializedParams = struct {};
@@ -723,13 +865,6 @@ pub const CompletionItem = struct {
     data: ?jsonic.AnyValue = null,
 };
 
-pub const CompletionRegistrationOptions = struct {
-    TextDocumentRegistrationOptions: TextDocumentRegistrationOptions,
-    triggerCharacters: ?[]String = null,
-    allCommitCharacters: ?[]String = null,
-    resolveProvider: ?bool = null,
-};
-
 pub const Hover = struct {
     contents: MarkupContent,
     range: ?Range = null,
@@ -750,11 +885,6 @@ pub const SignatureInformation = struct {
 pub const ParameterInformation = struct {
     label: String,
     documentation: ?MarkupContent = null,
-};
-
-pub const SignatureHelpRegistrationOptions = struct {
-    TextDocumentRegistrationOptions: TextDocumentRegistrationOptions,
-    triggerCharacters: ?[]String = null,
 };
 
 pub const ReferenceParams = struct {
@@ -823,11 +953,6 @@ pub const CodeAction = struct {
     command: ?Command = null,
 };
 
-pub const CodeActionRegistrationOptions = struct {
-    TextDocumentRegistrationOptions: TextDocumentRegistrationOptions,
-    CodeActionOptions: CodeActionOptions,
-};
-
 pub const CodeLensParams = struct {
     textDocument: TextDocumentIdentifier,
     WorkDoneProgressParams: WorkDoneProgressParams,
@@ -838,11 +963,6 @@ pub const CodeLens = struct {
     range: Range,
     command: ?Command = null,
     data: ?jsonic.AnyValue = null,
-};
-
-pub const CodeLensRegistrationOptions = struct {
-    TextDocumentRegistrationOptions: TextDocumentRegistrationOptions,
-    resolveProvider: ?bool = null,
 };
 
 pub const DocumentLinkParams = struct {
@@ -856,11 +976,6 @@ pub const DocumentLink = struct {
     target: ?DocumentUri = null,
     toolTip: ?String = null,
     data: ?jsonic.AnyValue = null,
-};
-
-pub const DocumentLinkRegistrationOptions = struct {
-    TextDocumentRegistrationOptions: TextDocumentRegistrationOptions,
-    resolveProvider: ?bool = null,
 };
 
 pub const DocumentColorParams = struct {
@@ -932,11 +1047,6 @@ pub const RenameParams = struct {
     TextDocumentPositionParams: TextDocumentPositionParams,
     WorkDoneProgressParams: WorkDoneProgressParams,
     newName: String,
-};
-
-pub const RenameRegistrationOptions = struct {
-    TextDocumentRegistrationOptions: TextDocumentRegistrationOptions,
-    prepareProvider: ?bool = null,
 };
 
 pub const FoldingRangeParams = struct {
