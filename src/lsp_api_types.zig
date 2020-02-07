@@ -102,7 +102,7 @@ pub const WorkspaceEdit = struct {
     documentChanges: ?[]union(enum) {
         edit: TextDocumentEdit,
         file_create: struct {
-            kind: String = "create",
+            kind: String = Kind.Create,
             uri: DocumentUri,
             options: ?struct {
                 overwrite: ?bool = null,
@@ -110,7 +110,7 @@ pub const WorkspaceEdit = struct {
             } = null,
         },
         file_rename: struct {
-            kind: String = "rename",
+            kind: String = Kind.Rename,
             oldUri: DocumentUri,
             newUri: DocumentUri,
             options: ?struct {
@@ -119,13 +119,19 @@ pub const WorkspaceEdit = struct {
             } = null,
         },
         file_delete: struct {
-            kind: String = "delete",
+            kind: String = Kind.Delete,
             uri: DocumentUri,
             options: ?struct {
                 recursive: ?bool = null,
                 ignoreIfNotExists: ?bool = null,
             } = null,
         },
+
+        pub const Kind = struct {
+            pub const Create: String = "create";
+            pub const Rename: String = "rename";
+            pub const Delete: String = "delete";
+        };
     } = null,
 };
 
@@ -167,19 +173,22 @@ pub const InitializeParams = struct {
     trace: ?String = null,
     workspaceFolders: ?[]WorkspaceFolder = null,
 
-    pub const trace_off = "off";
-    pub const trace_messages = "messages";
-    pub const trace_verbose = "verbose";
+    pub const Trace = struct {
+        pub const off = "off";
+        pub const messages = "messages";
+        pub const verbose = "verbose";
+    };
 };
 
-pub const code_action_kind = struct {
-    pub const quickfix = "quickfix";
-    pub const refactor = "refactor";
-    pub const refactor_extract = "refactor.extract";
-    pub const refactor_inline = "refactor.inline";
-    pub const refactor_rewrite = "refactor.rewrite";
-    pub const source = "source";
-    pub const source_organizeImports = "source.organizeImports";
+pub const CodeActionKind = struct {
+    pub const Empty = "";
+    pub const QuickFix = "quickfix";
+    pub const Refactor = "refactor";
+    pub const RefactorExtract = "refactor.extract";
+    pub const RefactorInline = "refactor.inline";
+    pub const RefactorRewrite = "refactor.rewrite";
+    pub const Source = "source";
+    pub const SourceOrganizeImports = "source.organizeImports";
 };
 
 pub const CompletionItemTag = enum {
@@ -247,38 +256,56 @@ pub const SymbolKind = enum {
 pub const ClientCapabilities = struct {
     workspace: ?struct {
         applyEdit: ?bool = null,
-        workspaceEdit: ?struct {
-            documentChanges: ?bool = null,
-            resourceOperations: ?[]String = null,
-            failureHandling: ?String = null,
-
-            pub const resource_operation_kind_create = "create";
-            pub const resource_operation_kind_rename = "rename";
-            pub const resource_operation_kind_delete = "delete";
-            pub const failure_handling_kind_abort = "abort";
-            pub const failure_handling_kind_transactional = "transactional";
-            pub const failure_handling_kind_undo = "undo";
-            pub const failure_handling_kind_textOnlyTransactional = "textOnlyTransactional";
-        } = null,
-        didChangeConfiguration: ?struct {
-            dynamicRegistration: ?bool = null,
-        } = null,
-        didChangeWatchedFiles: ?struct {
-            dynamicRegistration: ?bool = null,
-        } = null,
-        symbol: ?struct {
-            dynamicRegistration: ?bool = null,
-            symbolKind: ?struct {
-                valueSet: ?[]SymbolKind = null,
-            } = null,
-        } = null,
-        executeCommand: ?struct {
-            dynamicRegistration: ?bool = null,
-        } = null,
+        workspaceEdit: ?WorkspaceEditClientCapabilities = null,
+        didChangeConfiguration: ?DidChangeConfigurationClientCapabilities = null,
+        didChangeWatchedFiles: ?DidChangeWatchedFilesClientCapabilities = null,
+        symbol: ?WorkspaceSymbolClientCapabilities = null,
+        executeCommand: ?ExecuteCommandClientCapabilities = null,
         workspaceFolders: ?bool = null,
         configuration: ?bool = null,
     } = null,
-    textDocument: ?struct {
+    textDocument: ?TextDocumentClientCapabilities = null,
+    experimental: ?jsonic.AnyValue = null,
+
+    pub const ExecuteCommandClientCapabilities = struct {
+        dynamicRegistration: ?bool = null,
+    };
+
+    pub const WorkspaceSymbolClientCapabilities = struct {
+        dynamicRegistration: ?bool = null,
+        symbolKind: ?struct {
+            valueSet: ?[]SymbolKind = null,
+        } = null,
+    };
+
+    pub const DidChangeWatchedFilesClientCapabilities = struct {
+        dynamicRegistration: ?bool = null,
+    };
+
+    pub const DidChangeConfigurationClientCapabilities = struct {
+        dynamicRegistration: ?bool = null,
+    };
+
+    pub const WorkspaceEditClientCapabilities = struct {
+        documentChanges: ?bool = null,
+        resourceOperations: ?[]String = null,
+        failureHandling: ?String = null,
+
+        pub const ResourceOperationKind = struct {
+            pub const Create = "create";
+            pub const Rename = "rename";
+            pub const Delete = "delete";
+        };
+
+        pub const FailureHandlingKind = struct {
+            pub const Abort = "abort";
+            pub const Transactional = "transactional";
+            pub const TextOnlyTransactional = "textOnlyTransactional";
+            pub const Undo = "undo";
+        };
+    };
+
+    pub const TextDocumentClientCapabilities = struct {
         selectionRange: ?struct {
             dynamicRegistration: ?bool = null,
         } = null,
@@ -392,8 +419,7 @@ pub const ClientCapabilities = struct {
             rangeLimit: ?bool = null,
             lineFoldingOnly: ?bool = null,
         } = null,
-    } = null,
-    experimental: ?jsonic.AnyValue = null,
+    };
 };
 
 pub const InitializeResult = struct {
@@ -1062,9 +1088,11 @@ pub const FoldingRange = struct {
     endCharacter: ?isize = null,
     kind: ?String = null,
 
-    pub const kind_comment = "comment";
-    pub const kind_imports = "imports";
-    pub const kind_region = "region";
+    pub const Kind = struct {
+        pub const Comment = "comment";
+        pub const Imports = "imports";
+        pub const Region = "region";
+    };
 };
 
 pub const SignatureHelpParams = struct {
@@ -1099,9 +1127,11 @@ pub const WorkDoneProgress = struct {
     message: ?String = null,
     percentage: ?isize = null,
 
-    pub const kind_begin = "begin";
-    pub const kind_report = "report";
-    pub const kind_end = "end";
+    pub const Kind = struct {
+        pub const Begin = "begin";
+        pub const Report = "report";
+        pub const End = "end";
+    };
 };
 
 pub const SignatureHelpContext = struct {
