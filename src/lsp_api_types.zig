@@ -21,11 +21,81 @@ pub const DocumentUri = String;
 pub const Position = struct {
     line: isize,
     character: isize,
+
+    pub fn fromByteIndexIn(string: []const u8, index: usize) !?Position {
+        if (index < string.len) {
+            var cur = Position{ .line = 0, .character = 0 };
+            var i: usize = 0;
+            while (i < string.len) {
+                if (i >= index)
+                    return cur;
+                if (string[i] == '\n') {
+                    cur.line += 1;
+                    cur.character = 0;
+                    i += 1;
+                } else {
+                    cur.character += 1;
+                    i += try std.unicode.utf8ByteSequenceLength(string[i]);
+                }
+            }
+        }
+        return null;
+    }
+
+    pub fn toByteIndexIn(me: *const Position, string: []const u8) !?usize {
+        var cur = Position{ .line = 0, .character = 0 };
+        var i: usize = 0;
+        while (i < string.len) {
+            if (cur.line == me.line and cur.character == me.character)
+                return i;
+            if (string[i] == '\n') {
+                cur.line += 1;
+                cur.character = 0;
+                i += 1;
+            } else {
+                cur.character += 1;
+                i += try std.unicode.utf8ByteSequenceLength(string[i]);
+            }
+        }
+        return null;
+    }
 };
 
 pub const Range = struct {
     start: Position,
     end: Position,
+
+    pub fn initFrom(string: []const u8) !?Range {
+        if (try Position.fromByteIndexIn(string, string.len - 1)) |last_pos|
+            return Range{ .start = .{ .line = 0, .character = 0 }, .end = last_pos };
+        return null;
+    }
+
+    pub fn slice(me: *Range, string: []const u8) !?[]const u8 {
+        var cur = Position{ .line = 0, .character = 0 };
+        var idx_start: ?usize = null;
+        var idx_end: ?usize = null;
+        var i: usize = 0;
+        while (i < string.len and (idx_start == null or idx_end == null)) {
+            if (idx_end == null and cur.line == me.end.line and cur.character == me.end.character)
+                idx_end = i;
+            if (idx_start == null and cur.line == me.start.line and cur.character == me.start.character)
+                idx_start = i;
+            if (string[i] == '\n') {
+                cur.line += 1;
+                cur.character = 0;
+                i += 1;
+            } else {
+                cur.character += 1;
+                i += try std.unicode.utf8ByteSequenceLength(string[i]);
+            }
+        }
+        if (idx_start) |i_start| {
+            if (idx_end) |i_end|
+                return string[i_start..i_end];
+        }
+        return null;
+    }
 };
 
 pub const Location = struct {
@@ -829,7 +899,6 @@ pub const DidChangeTextDocumentParams = struct {
 
 pub const TextDocumentContentChangeEvent = struct {
     range: ?Range = null,
-    rangeLength: ?isize = null,
     text: String,
 };
 

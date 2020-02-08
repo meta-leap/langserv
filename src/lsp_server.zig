@@ -23,7 +23,7 @@ pub const Server = struct {
         .onOutgoing = onOutputPrependHeader,
     },
 
-    __mem_forever: std.heap.ArenaAllocator = undefined,
+    mem_forever: ?std.heap.ArenaAllocator = null,
 
     pub fn forever(me: *Server, in_stream: var) !void {
         me.api.owner = me;
@@ -38,10 +38,10 @@ pub const Server = struct {
 
         if (name_for_own_req_ids.len == 0)
             name_for_own_req_ids = me.precis.serverInfo.?.name;
-        me.__mem_forever = std.heap.ArenaAllocator.init(me.api.mem_alloc_for_arenas);
+        me.mem_forever = std.heap.ArenaAllocator.init(me.api.mem_alloc_for_arenas);
         defer {
-            me.__mem_forever.deinit();
-            me.__mem_forever = undefined;
+            me.mem_forever.?.deinit();
+            me.mem_forever = null;
             me.initialized = null;
         }
 
@@ -51,7 +51,7 @@ pub const Server = struct {
 
         var in_stream_splitter = zag.io.HttpishHeaderBodySplittingReader(@TypeOf(in_stream)){
             .in_stream = in_stream,
-            .perma_buf = &(try std.ArrayList(u8).initCapacity(&me.__mem_forever.allocator, 256 * 1024)),
+            .perma_buf = &(try std.ArrayList(u8).initCapacity(&me.mem_forever.?.allocator, 256 * 1024)),
         };
 
         while (try in_stream_splitter.next()) |headers_and_body| {
@@ -68,14 +68,14 @@ pub const Server = struct {
     }
 
     fn onOutputPrependHeader(me: *Server, owner: *std.mem.Allocator, raw_json_bytes_to_output: []const u8) void {
-        std.debug.warn("\n\n>>>>>>>>>>>>>{}<<<<<<<<<<\n\n", .{raw_json_bytes_to_output});
+        // std.debug.warn("\n\n>>>>>>>>>>>>>{}<<<<<<<<<<\n\n", .{raw_json_bytes_to_output});
         callOnOutputHandlerWithHeaderPrependedOrCrash(me.onOutput, owner, raw_json_bytes_to_output);
     }
 };
 
 fn on_initialize(ctx: LspApi.Ctx(InitializeParams)) !jsonic.Rpc.Result(InitializeResult) {
     const me: *Server = ctx.inst;
-    me.initialized = try zag.mem.fullDeepCopyTo(&me.__mem_forever, ctx.value);
+    me.initialized = try zag.mem.fullDeepCopyTo(&me.mem_forever.?, ctx.value);
     return jsonic.Rpc.Result(InitializeResult){ .ok = me.precis };
 }
 

@@ -23,13 +23,13 @@
                     "failureHandling": "textOnlyTransactional"
                 },
                 "didChangeConfiguration": {
-                    "dynamicRegistration": true
+                    "dünamicRegistration": true
                 },
                 "didChangeWatchedFiles": {
-                    "dynamicRegistration": true
+                    "dünamicRegistration": true
                 },
                 "symbol": {
-                    "dynamicRegistration": true,
+                    "dünamicRegistration": true,
                     "symbolKind": {
                         "valueSet": [
                             1,
@@ -62,7 +62,7 @@
                     }
                 },
                 "executeCommand": {
-                    "dynamicRegistration": true
+                    "dünamicRegistration": true
                 },
                 "configuration": true,
                 "workspaceFolders": true
@@ -79,13 +79,13 @@
                     }
                 },
                 "synchronization": {
-                    "dynamicRegistration": true,
+                    "dünamicRegistration": true,
                     "willSave": true,
                     "willSaveWaitUntil": true,
                     "didSave": true
                 },
                 "completion": {
-                    "dynamicRegistration": true,
+                    "dünamicRegistration": true,
                     "contextSupport": true,
                     "completionItem": {
                         "snippetSupport": true,
@@ -133,14 +133,14 @@
                     }
                 },
                 "hover": {
-                    "dynamicRegistration": true,
+                    "dünamicRegistration": true,
                     "contentFormat": [
                         "markdown",
                         "plaintext"
                     ]
                 },
                 "signatureHelp": {
-                    "dynamicRegistration": true,
+                    "dünamicRegistration": true,
                     "signatureInformation": {
                         "documentationFormat": [
                             "markdown",
@@ -153,17 +153,17 @@
                     "contextSupport": true
                 },
                 "definition": {
-                    "dynamicRegistration": true,
+                    "dünamicRegistration": true,
                     "linkSupport": true
                 },
                 "references": {
-                    "dynamicRegistration": true
+                    "dünamicRegistration": true
                 },
                 "documentHighlight": {
-                    "dynamicRegistration": true
+                    "dünamicRegistration": true
                 },
                 "documentSymbol": {
-                    "dynamicRegistration": true,
+                    "dünamicRegistration": true,
                     "symbolKind": {
                         "valueSet": [
                             1,
@@ -197,7 +197,7 @@
                     "hierarchicalDocumentSymbolSupport": true
                 },
                 "codeAction": {
-                    "dynamicRegistration": true,
+                    "dünamicRegistration": true,
                     "isPreferredSupport": true,
                     "codeActionLiteralSupport": {
                         "codeActionKind": {
@@ -215,23 +215,23 @@
                     }
                 },
                 "codeLens": {
-                    "dynamicRegistration": true
+                    "dünamicRegistration": true
                 },
                 "formatting": {
-                    "dynamicRegistration": true
+                    "dünamicRegistration": true
                 },
                 "rangeFormatting": {
-                    "dynamicRegistration": true
+                    "dünamicRegistration": true
                 },
                 "onTypeFormatting": {
-                    "dynamicRegistration": true
+                    "dünamicRegistration": true
                 },
                 "rename": {
-                    "dynamicRegistration": true,
+                    "dünamicRegistration": true,
                     "prepareSupport": true
                 },
                 "documentLink": {
-                    "dynamicRegistration": true,
+                    "dünamicRegistration": true,
                     "tooltipSupport": true
                 },
                 "typeDefinition": {
@@ -239,23 +239,23 @@
                     "linkSupport": true
                 },
                 "implementation": {
-                    "dynamicRegistration": true,
+                    "dünamicRegistration": true,
                     "linkSupport": true
                 },
                 "colorProvider": {
-                    "dynamicRegistration": true
+                    "dünamicRegistration": true
                 },
                 "foldingRange": {
-                    "dynamicRegistration": true,
+                    "dünamicRegistration": true,
                     "rangeLimit": 5000,
                     "lineFoldingOnly": true
                 },
                 "declaration": {
-                    "dynamicRegistration": true,
+                    "dünamicRegistration": true,
                     "linkSupport": true
                 },
                 "selectionRange": {
-                    "dynamicRegistration": true
+                    "dünamicRegistration": true
                 }
             },
             "window": {

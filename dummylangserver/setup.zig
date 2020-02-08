@@ -3,9 +3,21 @@ const std = @import("std");
 usingnamespace @import("../api.zig");
 usingnamespace @import("../../jsonic/api.zig").Rpc;
 
+var src_file_texts: ?std.StringHashMap(String) = null;
+
 pub fn setupCapabilitiesAndHandlers(srv: *Server) void {
     srv.api.onNotify(.initialized, onInitialized);
     srv.api.onRequest(.shutdown, onShutdown);
+
+    // FILE EVENTS
+    srv.precis.capabilities.textDocumentSync = .{
+        .options = .{
+            .openClose = true,
+            .change = TextDocumentSyncKind.Full,
+        },
+    };
+    srv.api.onNotify(.textDocument_didOpen, onFileBufOpened);
+    srv.api.onNotify(.textDocument_didChange, onFileBufEdited);
 
     // HOVER
     srv.precis.capabilities.hoverProvider = .{ .enabled = true };
@@ -26,6 +38,7 @@ pub fn setupCapabilitiesAndHandlers(srv: *Server) void {
 }
 
 fn onInitialized(ctx: Server.Ctx(InitializedParams)) !void {
+    src_file_texts = std.StringHashMap(String).init(&ctx.inst.mem_forever.?.allocator);
     std.debug.warn("\nINIT\t{}\n", .{ctx.value});
     try ctx.inst.api.notify(.window_showMessage, ShowMessageParams{
         .type__ = .Warning,
@@ -37,7 +50,24 @@ fn onInitialized(ctx: Server.Ctx(InitializedParams)) !void {
 }
 
 fn onShutdown(ctx: Server.Ctx(void)) error{}!Result(void) {
+    src_file_texts.?.deinit();
     return Result(void){ .ok = {} };
+}
+
+fn onFileBufOpened(ctx: Server.Ctx(DidOpenTextDocumentParams)) error{}!void {
+    // TODO: src_file_texts..
+    std.debug.warn("onFileBufOpened:\tlanguageId={s} uri={s} src_len={}\n", .{
+        ctx.value.textDocument.languageId,
+        ctx.value.textDocument.uri,
+        ctx.value.textDocument.text.len,
+    });
+}
+
+fn onFileBufEdited(ctx: Server.Ctx(DidChangeTextDocumentParams)) error{}!void {
+    std.debug.warn("onFileBufEdited:\turi={s} num_deltas={}\n", .{
+        ctx.value.textDocument.TextDocumentIdentifier.uri,
+        ctx.value.contentChanges.len,
+    });
 }
 
 fn onHover(ctx: Server.Ctx(HoverParams)) !Result(?Hover) {
@@ -79,6 +109,16 @@ fn onCompletionResolve(ctx: Server.Ctx(CompletionItem)) !Result(CompletionItem) 
     return Result(CompletionItem){ .ok = item };
 }
 
-fn onFormatting(ctx: Server.Ctx(DocumentRangeFormattingParams)) error{}!Result(?[]TextEdit) {
-    return Result(?[]TextEdit){ .ok = null };
+fn onFormatting(ctx: Server.Ctx(DocumentRangeFormattingParams)) !Result(?[]TextEdit) {
+    var src_file_path = ctx.value.textDocument.uri;
+    if (std.mem.startsWith(u8, src_file_path, "file://"))
+        src_file_path = src_file_path["file://".len..];
+    var src = try std.fs.cwd().readFileAlloc(ctx.mem, src_file_path, std.math.maxInt(usize));
+    for (src) |char, i| {
+        if (char == ' ')
+            src[i] = '\t'
+        else if (char == '\t')
+            src[i] = ' ';
+    }
+    return Result(?[]TextEdit){ .ok = &[_]TextEdit{.{ .newText = src, .range = ctx.value.range }} };
 }
