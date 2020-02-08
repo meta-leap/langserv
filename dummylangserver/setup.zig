@@ -45,6 +45,10 @@ pub fn setupCapabilitiesAndHandlers(srv: *Server) void {
     // SYMBOLS
     srv.precis.capabilities.documentSymbolProvider = .{ .enabled = true };
     srv.api.onRequest(.textDocument_documentSymbol, onSymbols);
+
+    // RENAME
+    srv.precis.capabilities.renameProvider = .{ .enabled = true };
+    srv.api.onRequest(.textDocument_rename, onRename);
 }
 
 fn onInitialized(ctx: Server.Ctx(InitializedParams)) !void {
@@ -155,4 +159,31 @@ fn onSymbols(ctx: Server.Ctx(DocumentSymbolParams)) !Result(?DocumentSymbols) {
         i += 1;
     }
     return Result(?DocumentSymbols){ .ok = .{ .hierarchy = symbols } };
+}
+
+fn onRename(ctx: Server.Ctx(RenameParams)) !Result(?[]WorkspaceEdit) {
+    const src_file_uri = ctx.value.TextDocumentPositionParams.textDocument.uri;
+    var src = if (utils.src_files_cache.?.get(src_file_uri)) |in_cache|
+        try std.mem.dupe(ctx.mem, u8, in_cache.value)
+    else
+        try std.fs.cwd().readFileAlloc(ctx.mem, zag.mem.trimPrefix(u8, src_file_uri, "file://"), std.math.maxInt(usize));
+
+    if (try Range.initFrom(src)) |range| {
+        if (try ctx.value.TextDocumentPositionParams.position.toByteIndexIn(src)) |pos| {
+            if ((src[pos] >= 'a' and src[pos] <= 'z') or (src[pos] >= 'A' and src[pos] <= 'Z')) {
+                var pos_start = pos;
+                var pos_end = pos;
+                while (pos_end < src.len and ((src[pos_end] >= 'a' and src[pos_end] <= 'z') or (src[pos_end] >= 'A' and src[pos_end] <= 'Z')))
+                    pos_end += 1;
+                while (pos_start >= 0 and ((src[pos_start] >= 'a' and src[pos_start] <= 'z') or (src[pos_start] >= 'A' and src[pos_start] <= 'Z')))
+                    pos_start -= 1;
+                pos_start += 1;
+                const word = .{src[pos_start..pos_end]};
+
+                // var edits = try ctx.mem.alloc(WorkspaceEdit, 1);
+            }
+        }
+    }
+
+    return Result(?[]WorkspaceEdit){ .ok = null };
 }
