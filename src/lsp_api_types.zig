@@ -171,7 +171,9 @@ pub const TextDocumentIdentifier = struct {
 
 pub const WorkspaceEdit = struct {
     changes: ?std.StringHashMap([]TextEdit) = null,
-    documentChanges: ?[]union(enum) {
+    documentChanges: ?[]DocumentChange = null,
+
+    pub const DocumentChange = union(enum) {
         edit: TextDocumentEdit,
         file_create: struct {
             kind: String = Kind.Create,
@@ -204,7 +206,7 @@ pub const WorkspaceEdit = struct {
             pub const Rename: String = "rename";
             pub const Delete: String = "delete";
         };
-    } = null,
+    };
 };
 
 pub const TextDocumentItem = struct {

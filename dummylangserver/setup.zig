@@ -161,15 +161,15 @@ fn onSymbols(ctx: Server.Ctx(DocumentSymbolParams)) !Result(?DocumentSymbols) {
     return Result(?DocumentSymbols){ .ok = .{ .hierarchy = symbols } };
 }
 
-fn onRename(ctx: Server.Ctx(RenameParams)) !Result(?[]WorkspaceEdit) {
+fn onRename(ctx: Server.Ctx(RenameParams)) !Result(?WorkspaceEdit) {
     const src_file_uri = ctx.value.TextDocumentPositionParams.textDocument.uri;
     var src = if (utils.src_files_cache.?.get(src_file_uri)) |in_cache|
         try std.mem.dupe(ctx.mem, u8, in_cache.value)
     else
         try std.fs.cwd().readFileAlloc(ctx.mem, zag.mem.trimPrefix(u8, src_file_uri, "file://"), std.math.maxInt(usize));
 
-    if (try Range.initFrom(src)) |range| {
-        if (try ctx.value.TextDocumentPositionParams.position.toByteIndexIn(src)) |pos| {
+    if (try Range.initFrom(src)) |range|
+        if (try ctx.value.TextDocumentPositionParams.position.toByteIndexIn(src)) |pos|
             if ((src[pos] >= 'a' and src[pos] <= 'z') or (src[pos] >= 'A' and src[pos] <= 'Z')) {
                 var pos_start = pos;
                 var pos_end = pos;
@@ -178,12 +178,17 @@ fn onRename(ctx: Server.Ctx(RenameParams)) !Result(?[]WorkspaceEdit) {
                 while (pos_start >= 0 and ((src[pos_start] >= 'a' and src[pos_start] <= 'z') or (src[pos_start] >= 'A' and src[pos_start] <= 'Z')))
                     pos_start -= 1;
                 pos_start += 1;
-                const word = .{src[pos_start..pos_end]};
 
-                // var edits = try ctx.mem.alloc(WorkspaceEdit, 1);
-            }
-        }
-    }
+                const word = src[pos_start..pos_end];
+                const new_src = try zag.mem.replace(u8, src, word, ctx.value.newName, ctx.mem);
 
-    return Result(?[]WorkspaceEdit){ .ok = null };
+                var edits = try ctx.mem.alloc(TextEdit, 1);
+                edits[0] = .{ .newText = new_src, .range = range };
+                var ret = WorkspaceEdit{ .changes = std.StringHashMap([]TextEdit).init(ctx.mem) };
+                _ = try ret.changes.?.put(src_file_uri, edits);
+
+                return Result(?WorkspaceEdit){ .ok = ret };
+            };
+
+    return fail(?WorkspaceEdit);
 }
