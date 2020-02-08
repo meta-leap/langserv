@@ -145,10 +145,5 @@ fn doFormat(src_file_uri: String, src_range: ?Range, mem: *std.mem.Allocator) !?
         else if (char == '\t')
             src[i] = ' ';
     }
-    // var trim = std.mem.trimRight(u8, src, " \t\r\n");
-    // if (trim.len < src.len) {
-    //     src[trim.len] = '\n';
-    //     src = src[0 .. trim.len + 1];
-    // }
     return TextEdit{ .range = ret_range, .newText = std.mem.trimRight(u8, src, " \t\r\n") };
 }
