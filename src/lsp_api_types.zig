@@ -220,7 +220,7 @@ pub const DocumentFilter = struct {
     pattern: ?String = null,
 };
 
-pub const DocumentSelector = []DocumentFilter;
+pub const DocumentSelector = []const DocumentFilter;
 
 pub const MarkupContent = struct {
     kind: String = Kind.markdown,
@@ -536,6 +536,7 @@ pub const WorkDoneProgressOptions = struct {
 };
 
 pub const DocumentOnTypeFormattingOptions = struct {
+    TextDocumentRegistrationOptions: ?TextDocumentRegistrationOptions = null,
     firstTriggerCharacter: String,
     moreTriggerCharacter: ?[]String = null,
 };
@@ -760,7 +761,7 @@ pub const ServerCapabilities = struct {
 pub const InitializedParams = struct {};
 
 pub const ShowMessageParams = struct {
-    type__: MessageType,
+    @"type": MessageType,
     message: String,
 };
 
@@ -773,7 +774,7 @@ pub const MessageType = enum {
 };
 
 pub const ShowMessageRequestParams = struct {
-    type__: MessageType,
+    @"type": MessageType,
     message: String,
     actions: ?[]MessageActionItem = null,
 };
@@ -783,7 +784,7 @@ pub const MessageActionItem = struct {
 };
 
 pub const LogMessageParams = struct {
-    type__: MessageType,
+    @"type": MessageType,
     message: String,
 };
 
@@ -843,7 +844,7 @@ pub const DidChangeWatchedFilesParams = struct {
 
 pub const FileEvent = struct {
     uri: DocumentUri,
-    type__: enum {
+    @"type": enum {
         __ = 0,
         Created = 1,
         Changed = 2,
@@ -874,10 +875,6 @@ pub const ExecuteCommandParams = struct {
     WorkDoneProgressParams: WorkDoneProgressParams,
     command: String,
     arguments: ?[]jsonic.AnyValue = null,
-};
-
-pub const ExecuteCommandRegistrationOptions = struct {
-    commands: []String,
 };
 
 pub const ApplyWorkspaceEditParams = struct {
@@ -1136,14 +1133,6 @@ pub const DocumentFormattingParams = struct {
     options: FormattingOptions,
 };
 
-pub const FormattingOptions = struct {
-    tabSize: isize,
-    insertSpaces: bool,
-    trimTrailingWhitespace: ?bool = null,
-    insertFinalNewline: ?bool = null,
-    trimFinalNewlines: ?bool = null,
-};
-
 pub const DocumentRangeFormattingParams = struct {
     WorkDoneProgressParams: WorkDoneProgressParams,
     textDocument: TextDocumentIdentifier,
@@ -1157,10 +1146,12 @@ pub const DocumentOnTypeFormattingParams = struct {
     options: FormattingOptions,
 };
 
-pub const DocumentOnTypeFormattingRegistrationOptions = struct {
-    TextDocumentRegistrationOptions: TextDocumentRegistrationOptions,
-    firstTriggerCharacter: String,
-    moreTriggerCharacter: ?[]String = null,
+pub const FormattingOptions = struct {
+    tabSize: isize,
+    insertSpaces: bool,
+    trimTrailingWhitespace: ?bool = null,
+    insertFinalNewline: ?bool = null,
+    trimFinalNewlines: ?bool = null,
 };
 
 pub const RenameParams = struct {

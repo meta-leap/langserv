@@ -21,7 +21,7 @@ pub const JsonOptions = jsonic.Rpc.Options{
     .rewriteUnionFieldNameToJsonRpcMethodName = rewriteUnionFieldNameToJsonRpcMethodName,
     .rewriteJsonRpcMethodNameToUnionFieldName = rewriteJsonRpcMethodNameToUnionFieldName,
     .json = .{
-        .rewriteStructFieldNameToJsonObjectKey = rewriteStructFieldNameToJsonObjectKey,
+        // .rewriteStructFieldNameToJsonObjectKey = rewriteStructFieldNameToJsonObjectKey,
         .isStructFieldEmbedded = isStructFieldEmbedded,
         .unmarshal_set_optionals_null_on_bad_inputs = true,
         .unmarshal_err_on_missing_nonvoid_nonoptional_fields = false,
@@ -42,12 +42,12 @@ fn rewriteJsonRpcMethodNameToUnionFieldName(incoming_kind: jsonic.Rpc.MsgKind, j
     return name;
 }
 
-fn rewriteStructFieldNameToJsonObjectKey(comptime TStruct: type, comptime field_name: []const u8, comptime when: jsonic.Jsonic.During) []const u8 {
-    return if (!std.mem.endsWith(u8, field_name, "__"))
-        field_name
-    else
-        field_name[0 .. field_name.len - 2];
-}
+// fn rewriteStructFieldNameToJsonObjectKey(comptime TStruct: type, comptime field_name: []const u8, comptime when: jsonic.Jsonic.During) []const u8 {
+//     return if (!std.mem.endsWith(u8, field_name, "__"))
+//         field_name
+//     else
+//         field_name[0 .. field_name.len - 2];
+// }
 
 fn isStructFieldEmbedded(comptime TStruct: type, comptime field_name: []const u8, comptime TField: type, comptime when: jsonic.Jsonic.During) bool {
     return std.mem.eql(u8, field_name, @typeName(TField));
