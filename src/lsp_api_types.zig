@@ -71,16 +71,18 @@ pub const Range = struct {
         return null;
     }
 
-    pub fn slice(me: *Range, string: []const u8) !?[]const u8 {
+    pub fn slice(me: *const Range, string: []u8) !?[]u8 {
         var cur = Position{ .line = 0, .character = 0 };
         var idx_start: ?usize = null;
         var idx_end: ?usize = null;
         var i: usize = 0;
-        while (i < string.len and (idx_start == null or idx_end == null)) {
+        while (idx_start == null or idx_end == null) {
             if (idx_end == null and cur.line == me.end.line and cur.character == me.end.character)
                 idx_end = i;
             if (idx_start == null and cur.line == me.start.line and cur.character == me.start.character)
                 idx_start = i;
+            if (i == string.len)
+                break;
             if (string[i] == '\n') {
                 cur.line += 1;
                 cur.character = 0;

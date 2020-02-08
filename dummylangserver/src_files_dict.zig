@@ -4,23 +4,30 @@ usingnamespace @import("../../jsonic/api.zig").Rpc;
 
 pub var cache: ?std.StringHashMap(String) = null;
 
-pub fn onFileBufOpened(ctx: Server.Ctx(DidOpenTextDocumentParams)) !void {
-    const srv = ctx.inst;
-    if (try cache.?.put(
-        try std.mem.dupe(&srv.mem_forever.?.allocator, u8, ctx.value.textDocument.uri),
-        try std.mem.dupe(&srv.mem_forever.?.allocator, u8, ctx.value.textDocument.text),
-    )) |old_src| {
-        srv.mem_forever.?.allocator.free(old_src.key);
-        srv.mem_forever.?.allocator.free(old_src.value);
+fn updateSrcInCache(srv: *Server, uri: String, src_full: ?String) !void {
+    const mem = &srv.mem_forever.?.allocator;
+    const old = if (src_full) |src|
+        try cache.?.put(try std.mem.dupe(mem, u8, uri), try std.mem.dupe(mem, u8, src))
+    else
+        cache.?.remove(uri);
+    if (old) |old_src| {
+        mem.free(old_src.key);
+        mem.free(old_src.value);
     }
 }
 
-pub fn onFileBufEdited(ctx: Server.Ctx(DidChangeTextDocumentParams)) error{}!void {
+pub fn onFileBufOpened(ctx: Server.Ctx(DidOpenTextDocumentParams)) !void {
+    try updateSrcInCache(ctx.inst, ctx.value.textDocument.uri, ctx.value.textDocument.text);
+}
+
+pub fn onFileClosed(ctx: Server.Ctx(DidCloseTextDocumentParams)) !void {
+    try updateSrcInCache(ctx.inst, ctx.value.textDocument.uri, null);
+}
+
+pub fn onFileBufEdited(ctx: Server.Ctx(DidChangeTextDocumentParams)) !void {
     if (ctx.value.contentChanges.len > 0) {
-        //
+        std.debug.assert(ctx.value.contentChanges.len == 1);
+        try updateSrcInCache(ctx.inst, ctx.value.textDocument.
+            TextDocumentIdentifier.uri, ctx.value.contentChanges[0].text);
     }
-    std.debug.warn("onFileBufEdited:\turi={s} num_deltas={}\n", .{
-        ctx.value.textDocument.TextDocumentIdentifier.uri,
-        ctx.value.contentChanges.len,
-    });
 }

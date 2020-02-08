@@ -1,7 +1,7 @@
 const std = @import("std");
+const zag = @import("../../zag/api.zig");
 usingnamespace @import("../api.zig");
 usingnamespace @import("../../jsonic/api.zig").Rpc;
-
 const src_sync = @import("./src_files_dict.zig");
 
 pub fn setupCapabilitiesAndHandlers(srv: *Server) void {
@@ -15,6 +15,7 @@ pub fn setupCapabilitiesAndHandlers(srv: *Server) void {
             .change = TextDocumentSyncKind.Full,
         },
     };
+    srv.api.onNotify(.textDocument_didClose, src_sync.onFileClosed);
     srv.api.onNotify(.textDocument_didOpen, src_sync.onFileBufOpened);
     srv.api.onNotify(.textDocument_didChange, src_sync.onFileBufEdited);
 
@@ -93,20 +94,26 @@ fn onCompletionResolve(ctx: Server.Ctx(CompletionItem)) !Result(CompletionItem) 
 }
 
 fn onFormatting(ctx: Server.Ctx(DocumentRangeFormattingParams)) !Result(?[]TextEdit) {
-    var src_file_path = ctx.value.textDocument.uri;
-    if (std.mem.startsWith(u8, src_file_path, "file://"))
-        src_file_path = src_file_path["file://".len..];
-    var src = try std.fs.cwd().readFileAlloc(ctx.mem, src_file_path, std.math.maxInt(usize));
-    for (src) |char, i| {
+    var src = if (src_sync.cache.?.get(ctx.value.textDocument.uri)) |in_cache|
+        try std.mem.dupe(ctx.mem, u8, in_cache.value)
+    else
+        try std.fs.cwd().readFileAlloc(
+            ctx.mem,
+            zag.mem.trimPrefix(u8, ctx.value.textDocument.uri, "file://"),
+            std.math.maxInt(usize),
+        );
+
+    var sub_src = (try ctx.value.range.slice(src)) orelse
+        return Result(?[]TextEdit){ .err = .{ .code = 12121, .message = "somewhere there's a bug in here.." } };
+
+    for (sub_src) |char, i| {
         if (char == ' ')
-            src[i] = '\t'
+            sub_src[i] = '\t'
         else if (char == '\t')
-            src[i] = ' ';
+            sub_src[i] = ' ';
     }
-    return Result(?[]TextEdit){
-        .ok = &[_]TextEdit{.{
-            .newText = src,
-            .range = ctx.value.range,
-        }},
-    };
+
+    const edits = try ctx.mem.alloc(TextEdit, 1);
+    edits[0] = TextEdit{ .range = ctx.value.range, .newText = sub_src };
+    return Result(?[]TextEdit){ .ok = edits };
 }
