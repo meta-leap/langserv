@@ -51,7 +51,7 @@ pub const Server = struct {
 
         var in_stream_splitter = zag.io.HttpishHeaderBodySplittingReader(@TypeOf(in_stream)){
             .in_stream = in_stream,
-            .perma_buf = &(try std.ArrayList(u8).initCapacity(&me.mem_forever.?.allocator, 256 * 1024)),
+            .perma_buf = &(try std.ArrayList(u8).initCapacity(&me.mem_forever.?.allocator, 128 * 1024)),
         };
 
         while (try in_stream_splitter.next()) |headers_and_body| {

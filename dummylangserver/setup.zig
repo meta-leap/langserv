@@ -1,9 +1,8 @@
 const std = @import("std");
-
 usingnamespace @import("../api.zig");
 usingnamespace @import("../../jsonic/api.zig").Rpc;
 
-var src_file_texts: ?std.StringHashMap(String) = null;
+const src_sync = @import("./src_files_dict.zig");
 
 pub fn setupCapabilitiesAndHandlers(srv: *Server) void {
     srv.api.onNotify(.initialized, onInitialized);
@@ -16,8 +15,8 @@ pub fn setupCapabilitiesAndHandlers(srv: *Server) void {
             .change = TextDocumentSyncKind.Full,
         },
     };
-    srv.api.onNotify(.textDocument_didOpen, onFileBufOpened);
-    srv.api.onNotify(.textDocument_didChange, onFileBufEdited);
+    srv.api.onNotify(.textDocument_didOpen, src_sync.onFileBufOpened);
+    srv.api.onNotify(.textDocument_didChange, src_sync.onFileBufEdited);
 
     // HOVER
     srv.precis.capabilities.hoverProvider = .{ .enabled = true };
@@ -38,7 +37,7 @@ pub fn setupCapabilitiesAndHandlers(srv: *Server) void {
 }
 
 fn onInitialized(ctx: Server.Ctx(InitializedParams)) !void {
-    src_file_texts = std.StringHashMap(String).init(&ctx.inst.mem_forever.?.allocator);
+    src_sync.cache = std.StringHashMap(String).init(&ctx.inst.mem_forever.?.allocator);
     std.debug.warn("\nINIT\t{}\n", .{ctx.value});
     try ctx.inst.api.notify(.window_showMessage, ShowMessageParams{
         .type__ = .Warning,
@@ -50,24 +49,8 @@ fn onInitialized(ctx: Server.Ctx(InitializedParams)) !void {
 }
 
 fn onShutdown(ctx: Server.Ctx(void)) error{}!Result(void) {
-    src_file_texts.?.deinit();
+    src_sync.cache.?.deinit();
     return Result(void){ .ok = {} };
-}
-
-fn onFileBufOpened(ctx: Server.Ctx(DidOpenTextDocumentParams)) error{}!void {
-    // TODO: src_file_texts..
-    std.debug.warn("onFileBufOpened:\tlanguageId={s} uri={s} src_len={}\n", .{
-        ctx.value.textDocument.languageId,
-        ctx.value.textDocument.uri,
-        ctx.value.textDocument.text.len,
-    });
-}
-
-fn onFileBufEdited(ctx: Server.Ctx(DidChangeTextDocumentParams)) error{}!void {
-    std.debug.warn("onFileBufEdited:\turi={s} num_deltas={}\n", .{
-        ctx.value.textDocument.TextDocumentIdentifier.uri,
-        ctx.value.contentChanges.len,
-    });
 }
 
 fn onHover(ctx: Server.Ctx(HoverParams)) !Result(?Hover) {
@@ -120,5 +103,10 @@ fn onFormatting(ctx: Server.Ctx(DocumentRangeFormattingParams)) !Result(?[]TextE
         else if (char == '\t')
             src[i] = ' ';
     }
-    return Result(?[]TextEdit){ .ok = &[_]TextEdit{.{ .newText = src, .range = ctx.value.range }} };
+    return Result(?[]TextEdit){
+        .ok = &[_]TextEdit{.{
+            .newText = src,
+            .range = ctx.value.range,
+        }},
+    };
 }
