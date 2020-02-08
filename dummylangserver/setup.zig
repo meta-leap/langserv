@@ -2,18 +2,11 @@ const std = @import("std");
 const zag = @import("../../zag/api.zig");
 usingnamespace @import("../api.zig");
 usingnamespace @import("../../jsonic/api.zig").Rpc;
-const src_sync = @import("./src_files_dict.zig");
+const utils = @import("./utils.zig");
 
 fn fail(comptime T: type) Result(T) {
     return Result(T){ .err = .{ .code = 12121, .message = "somewhere there's a bug in here." } };
 }
-
-var reg = TextDocumentRegistrationOptions{
-    .documentSelector = ([2]DocumentFilter{
-        .{ .language = "handlebars", .scheme = "file", .pattern = "**/*.dummy" },
-        .{ .language = "dummy", .scheme = "file", .pattern = "**/*.dummy" },
-    })[0..2],
-};
 
 pub fn setupCapabilitiesAndHandlers(srv: *Server) void {
     srv.api.onNotify(.initialized, onInitialized);
@@ -26,9 +19,9 @@ pub fn setupCapabilitiesAndHandlers(srv: *Server) void {
             .change = TextDocumentSyncKind.Full,
         },
     };
-    srv.api.onNotify(.textDocument_didClose, src_sync.onFileClosed);
-    srv.api.onNotify(.textDocument_didOpen, src_sync.onFileBufOpened);
-    srv.api.onNotify(.textDocument_didChange, src_sync.onFileBufEdited);
+    srv.api.onNotify(.textDocument_didClose, utils.onFileClosed);
+    srv.api.onNotify(.textDocument_didOpen, utils.onFileBufOpened);
+    srv.api.onNotify(.textDocument_didChange, utils.onFileBufEdited);
 
     // HOVER
     srv.precis.capabilities.hoverProvider = .{ .enabled = true };
@@ -43,19 +36,19 @@ pub fn setupCapabilitiesAndHandlers(srv: *Server) void {
     srv.api.onRequest(.textDocument_completion, onCompletion);
     srv.api.onRequest(.completionItem_resolve, onCompletionResolve);
 
-    // FMT
+    // FORMATTING
     srv.precis.capabilities.documentRangeFormattingProvider = .{ .enabled = true };
     srv.api.onRequest(.textDocument_rangeFormatting, onFormatRange);
-
-    srv.precis.capabilities.documentOnTypeFormattingProvider = .{
-        .TextDocumentRegistrationOptions = reg,
-        .firstTriggerCharacter = "}",
-    };
+    srv.precis.capabilities.documentOnTypeFormattingProvider = .{ .firstTriggerCharacter = "}" };
     srv.api.onRequest(.textDocument_onTypeFormatting, onFormatOnType);
+
+    // SYMBOLS
+    srv.precis.capabilities.documentSymbolProvider = .{ .enabled = true };
+    srv.api.onRequest(.textDocument_documentSymbol, onSymbols);
 }
 
 fn onInitialized(ctx: Server.Ctx(InitializedParams)) !void {
-    src_sync.cache = std.StringHashMap(String).init(&ctx.inst.mem_forever.?.allocator);
+    utils.src_files_cache = std.StringHashMap(String).init(&ctx.inst.mem_forever.?.allocator);
     std.debug.warn("\nINIT\t{}\n", .{ctx.value});
     try ctx.inst.api.notify(.window_showMessage, ShowMessageParams{
         .@"type" = .Warning,
@@ -67,7 +60,7 @@ fn onInitialized(ctx: Server.Ctx(InitializedParams)) !void {
 }
 
 fn onShutdown(ctx: Server.Ctx(void)) error{}!Result(void) {
-    src_sync.cache.?.deinit();
+    utils.src_files_cache.?.deinit();
     return Result(void){ .ok = {} };
 }
 
@@ -127,7 +120,7 @@ fn onFormatOnType(ctx: Server.Ctx(DocumentOnTypeFormattingParams)) !Result(?[]Te
 }
 
 fn doFormat(src_file_uri: String, src_range: ?Range, mem: *std.mem.Allocator) !?TextEdit {
-    var src = if (src_sync.cache.?.get(src_file_uri)) |in_cache|
+    var src = if (utils.src_files_cache.?.get(src_file_uri)) |in_cache|
         try std.mem.dupe(mem, u8, in_cache.value)
     else
         try std.fs.cwd().readFileAlloc(mem, zag.mem.trimPrefix(u8, src_file_uri, "file://"), std.math.maxInt(usize));
@@ -146,4 +139,20 @@ fn doFormat(src_file_uri: String, src_range: ?Range, mem: *std.mem.Allocator) !?
             src[i] = ' ';
     }
     return TextEdit{ .range = ret_range, .newText = std.mem.trimRight(u8, src, " \t\r\n") };
+}
+
+fn onSymbols(ctx: Server.Ctx(DocumentSymbolParams)) !Result(?DocumentSymbols) {
+    var symbols = try ctx.mem.alloc(DocumentSymbol, @typeInfo(SymbolKind).Enum.fields.len);
+    comptime var i: usize = 0;
+    inline for (@typeInfo(SymbolKind).Enum.fields) |*enum_field| {
+        symbols[i] = DocumentSymbol{
+            .name = enum_field.name,
+            .detail = try std.fmt.allocPrint(ctx.mem, "{s}.{s} = {d}", .{ @typeName(SymbolKind), enum_field.name, enum_field.value }),
+            .kind = @intToEnum(SymbolKind, enum_field.value),
+            .range = Range{ .start = .{ .character = 0, .line = i }, .end = .{ .character = 22, .line = i } },
+            .selectionRange = Range{ .start = .{ .character = 0, .line = i }, .end = .{ .character = 22, .line = i } },
+        };
+        i += 1;
+    }
+    return Result(?DocumentSymbols){ .ok = .{ .hierarchy = symbols } };
 }

@@ -2,14 +2,14 @@ const std = @import("std");
 usingnamespace @import("../api.zig");
 usingnamespace @import("../../jsonic/api.zig").Rpc;
 
-pub var cache: ?std.StringHashMap(String) = null;
+pub var src_files_cache: ?std.StringHashMap(String) = null;
 
 fn updateSrcInCache(srv: *Server, uri: String, src_full: ?String) !void {
     const mem = &srv.mem_forever.?.allocator;
     const old = if (src_full) |src|
-        try cache.?.put(try std.mem.dupe(mem, u8, uri), try std.mem.dupe(mem, u8, src))
+        try src_files_cache.?.put(try std.mem.dupe(mem, u8, uri), try std.mem.dupe(mem, u8, src))
     else
-        cache.?.remove(uri);
+        src_files_cache.?.remove(uri);
     if (old) |old_src| {
         mem.free(old_src.key);
         mem.free(old_src.value);

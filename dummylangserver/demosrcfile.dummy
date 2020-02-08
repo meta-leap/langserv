@@ -2,6 +2,7 @@
     "jsonrpc": "2.0",
     "id": 0,
     "method": "initialize",
+    "foo": "lib/std/special/docs/main.js",
     "params": {
         "processId": 22745,
         "clientInfo": {

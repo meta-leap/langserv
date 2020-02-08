@@ -58,32 +58,14 @@ pub const api_server_side = Spec{
         completionItem_resolve: fn (CompletionItem) CompletionItem,
         textDocument_hover: fn (HoverParams) ?Hover,
         textDocument_signatureHelp: fn (SignatureHelpParams) ?SignatureHelp,
-        textDocument_declaration: fn (DeclarationParams) ?union(enum) {
-            locations: []Location,
-            links: []LocationLink,
-        },
-        textDocument_definition: fn (DefinitionParams) ?union(enum) {
-            locations: []Location,
-            links: []LocationLink,
-        },
-        textDocument_typeDefinition: fn (TypeDefinitionParams) ?union(enum) {
-            locations: []Location,
-            links: []LocationLink,
-        },
-        textDocument_implementation: fn (ImplementationParams) ?union(enum) {
-            locations: []Location,
-            links: []LocationLink,
-        },
+        textDocument_declaration: fn (DeclarationParams) ?Locations,
+        textDocument_definition: fn (DefinitionParams) ?Locations,
+        textDocument_typeDefinition: fn (TypeDefinitionParams) ?Locations,
+        textDocument_implementation: fn (ImplementationParams) ?Locations,
         textDocument_references: fn (ReferenceParams) ?[]Location,
         textDocument_documentHighlight: fn (DocumentHighlightParams) ?[]DocumentHighlight,
-        textDocument_documentSymbol: fn (DocumentSymbolParams) ?union(enum) {
-            flat: []SymbolInformation,
-            hierarchy: []DocumentSymbol,
-        },
-        textDocument_codeAction: fn (CodeActionParams) ?[]union(enum) {
-            code_action: CodeAction,
-            command: Command,
-        },
+        textDocument_documentSymbol: fn (DocumentSymbolParams) ?DocumentSymbols,
+        textDocument_codeAction: fn (CodeActionParams) ?CodeActions,
         textDocument_codeLens: fn (CodeLensParams) ?[]CodeLens,
         codeLens_resolve: fn (CodeLens) CodeLens,
         textDocument_documentLink: fn (DocumentLinkParams) ?[]DocumentLink,
@@ -98,4 +80,19 @@ pub const api_server_side = Spec{
         textDocument_foldingRange: fn (FoldingRangeParams) ?[]FoldingRange,
         textDocument_selectionRange: fn (SelectionRangeParams) ?[]SelectionRange,
     },
+};
+
+pub const DocumentSymbols = union(enum) {
+    flat: []SymbolInformation,
+    hierarchy: []DocumentSymbol,
+};
+
+pub const CodeActions = []union(enum) {
+    code_action: CodeAction,
+    command: Command,
+};
+
+pub const Locations = union(enum) {
+    locations: []Location,
+    links: []LocationLink,
 };
