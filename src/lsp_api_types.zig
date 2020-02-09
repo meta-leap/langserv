@@ -22,7 +22,7 @@ pub const Position = struct {
     line: isize,
     character: isize,
 
-    pub fn fromByteIndexIn(string: []const u8, index: usize) !?Position {
+    pub fn fromByteIndexIn(string: String, index: usize) !?Position {
         if (index < string.len) {
             var cur = Position{ .line = 0, .character = 0 };
             var i: usize = 0;
@@ -42,7 +42,7 @@ pub const Position = struct {
         return null;
     }
 
-    pub fn toByteIndexIn(me: *const Position, string: []const u8) !?usize {
+    pub fn toByteIndexIn(me: *const Position, string: String) !?usize {
         var cur = Position{ .line = 0, .character = 0 };
         var i: usize = 0;
         while (i < string.len) {
@@ -65,9 +65,16 @@ pub const Range = struct {
     start: Position,
     end: Position,
 
-    pub fn initFrom(string: []const u8) !?Range {
+    pub fn initFrom(string: String) !?Range {
         if (try Position.fromByteIndexIn(string, string.len - 1)) |last_pos|
             return Range{ .start = .{ .line = 0, .character = 0 }, .end = last_pos };
+        return null;
+    }
+
+    pub fn initFromSlice(string: String, index_start: usize, index_end: usize) !?Range {
+        if (try Position.fromByteIndexIn(string, index_start)) |start|
+            if (try Position.fromByteIndexIn(string, index_end)) |end|
+                return Range{ .start = start, .end = end };
         return null;
     }
 

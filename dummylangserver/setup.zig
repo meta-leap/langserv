@@ -70,6 +70,10 @@ pub fn setupCapabilitiesAndHandlers(srv: *Server) void {
     srv.api.onRequest(.workspace_executeCommand, onExecuteCommand);
     srv.cfg.capabilities.codeLensProvider = .{ .resolveProvider = false };
     srv.api.onRequest(.textDocument_codeLens, onCodeLenses);
+
+    // SELECTION RANGE
+    srv.cfg.capabilities.selectionRangeProvider = .{ .enabled = true };
+    srv.api.onRequest(.textDocument_selectionRange, onSelectionRange);
 }
 
 fn onInitialized(ctx: Server.Ctx(InitializedParams)) !void {
@@ -237,17 +241,9 @@ fn onRename(ctx: Server.Ctx(RenameParams)) !Result(?WorkspaceEdit) {
 fn onRenamePrep(ctx: Server.Ctx(TextDocumentPositionParams)) !Result(?RenamePrep) {
     const src_file_uri = ctx.value.textDocument.uri;
     if (try RenameHelper.init(ctx.mem, src_file_uri, ctx.value.position)) |ren|
-        if (try Position.fromByteIndexIn(ren.src, ren.word_start)) |pos_start|
-            if (try Position.fromByteIndexIn(ren.src, ren.word_end)) |pos_end| {
-                return Result(?RenamePrep){
-                    .ok = .{
-                        .augmented = .{
-                            .placeholder = "Hint text goes here.",
-                            .range = .{ .start = pos_start, .end = pos_end },
-                        },
-                    },
-                };
-            };
+        if (try Range.initFromSlice(ren.src, ren.word_start, ren.word_end)) |range| {
+            return Result(?RenamePrep){ .ok = .{ .augmented = .{ .placeholder = "Hint text goes here.", .range = range } } };
+        };
     return Result(?RenamePrep){ .ok = null };
 }
 
@@ -274,12 +270,7 @@ fn onSymbolHighlight(ctx: Server.Ctx(DocumentHighlightParams)) !Result(?[]Docume
         while (i < ren.src.len) {
             if (std.mem.indexOfPos(u8, ren.src, i, word)) |idx| {
                 i = idx + word.len;
-                try syms.append(.{
-                    .range = .{
-                        .start = (try Position.fromByteIndexIn(ren.src, idx)) orelse continue,
-                        .end = (try Position.fromByteIndexIn(ren.src, i)) orelse continue,
-                    },
-                });
+                try syms.append(.{ .range = (try Range.initFromSlice(ren.src, idx, i)) orelse continue });
             } else
                 break;
         }
@@ -359,4 +350,18 @@ fn onCodeLenses(ctx: Server.Ctx(CodeLensParams)) !Result(?[]CodeLens) {
         };
     }
     return Result(?[]CodeLens){ .ok = lenses };
+}
+
+fn onSelectionRange(ctx: Server.Ctx(SelectionRangeParams)) !Result(?[]SelectionRange) {
+    const src_file_uri = ctx.value.textDocument.uri;
+    var ranges = try ctx.mem.alloc(SelectionRange, ctx.value.positions.len);
+    for (ctx.value.positions) |pos, i| {
+        ranges[i].parent = null;
+        if (try RenameHelper.init(ctx.mem, src_file_uri, pos)) |ren|
+            ranges[i].range = (try Range.initFromSlice(ren.src, ren.word_start, ren.word_end)) orelse
+                return Result(?[]SelectionRange){ .ok = null }
+        else
+            return Result(?[]SelectionRange){ .ok = null };
+    }
+    return Result(?[]SelectionRange){ .ok = ranges };
 }
