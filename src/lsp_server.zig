@@ -22,6 +22,9 @@ pub const Server = struct {
         .onOutgoing = onOutputPrependHeader,
     },
 
+    /// will be non-null and valid and initialized while `forever` runs,
+    /// then deinited and nulled as it returns. the backing alloc used
+    /// will be the one set in .api.mem_alloc_for_arenas
     mem_forever: ?std.heap.ArenaAllocator = null,
 
     pub fn forever(me: *Server, in_stream: var) !void {
@@ -39,9 +42,9 @@ pub const Server = struct {
             name_for_own_req_ids = me.cfg.serverInfo.?.name;
         me.mem_forever = std.heap.ArenaAllocator.init(me.api.mem_alloc_for_arenas);
         defer {
+            me.initialized = null;
             me.mem_forever.?.deinit();
             me.mem_forever = null;
-            me.initialized = null;
         }
 
         me.api.onRequest(.initialize, on_initialize);
@@ -74,7 +77,7 @@ pub const Server = struct {
 
 fn on_initialize(ctx: LspApi.Ctx(InitializeParams)) !jsonic.Rpc.Result(InitializeResult) {
     const me: *Server = ctx.inst;
-    me.initialized = try zag.mem.fullDeepCopyTo(&me.mem_forever.?, ctx.value);
+    me.initialized = try zag.mem.fullDeepCopyTo(&me.mem_forever.?.allocator, ctx.value);
     if (me.initialized.?.clientInfo == null)
         me.initialized.?.clientInfo = .{ .name = "SomeUnnamedLspClient" };
     return jsonic.Rpc.Result(InitializeResult){ .ok = me.cfg };

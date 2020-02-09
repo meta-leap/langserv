@@ -11,7 +11,8 @@ fn stdoutWrite(out_bytes: []const u8) !void {
 pub fn main() !u8 {
     var server = lsp.Server{ .onOutput = stdoutWrite };
     setupServer(&server);
-    try server.forever(&std.io.getStdIn().inStream().stream);
+    try server.forever(&std.io.BufferedInStream(std.os.ReadError).
+        init(&std.io.getStdIn().inStream().stream).stream);
     return 1; // lsp.Server.forever does a proper os.exit(0) when so instructed by lang-client (which conventionally also launched it)
 }
 
