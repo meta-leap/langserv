@@ -47,8 +47,8 @@ pub fn setupCapabilitiesAndHandlers(srv: *Server) void {
 
     // RENAME
     srv.cfg.capabilities.renameProvider = .{ .options = .{ .prepareProvider = true } };
-    srv.api.onRequest(.textDocument_rename, onRename);
     srv.api.onRequest(.textDocument_prepareRename, onRenamePrep);
+    srv.api.onRequest(.textDocument_rename, onRename);
 
     // SIGNATURE TOOLTIP
     srv.cfg.capabilities.signatureHelpProvider = .{
