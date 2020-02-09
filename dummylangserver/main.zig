@@ -19,6 +19,6 @@ pub fn main() !u8 {
 
 fn setupServer(server: *lsp.Server) void {
     server.onOutput = stdoutWrite;
-    server.precis.serverInfo.?.name = "dummylangserver";
+    server.cfg.serverInfo.?.name = "dummylangserver";
     @import("./setup.zig").setupCapabilitiesAndHandlers(server);
 }

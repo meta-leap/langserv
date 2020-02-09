@@ -14,7 +14,7 @@ pub fn setupCapabilitiesAndHandlers(srv: *Server) void {
     srv.api.onRequest(.shutdown, onShutdown);
 
     // FILE EVENTS
-    srv.precis.capabilities.textDocumentSync = .{
+    srv.cfg.capabilities.textDocumentSync = .{
         .options = .{
             .openClose = true,
             .change = TextDocumentSyncKind.Full,
@@ -25,11 +25,11 @@ pub fn setupCapabilitiesAndHandlers(srv: *Server) void {
     srv.api.onNotify(.textDocument_didChange, utils.onFileBufEdited);
 
     // HOVER TOOLTIP
-    srv.precis.capabilities.hoverProvider = .{ .enabled = true };
+    srv.cfg.capabilities.hoverProvider = .{ .enabled = true };
     srv.api.onRequest(.textDocument_hover, onHover);
 
     // AUTO-COMPLETE
-    srv.precis.capabilities.completionProvider = .{
+    srv.cfg.capabilities.completionProvider = .{
         .triggerCharacters = &[_]String{"."},
         .allCommitCharacters = &[_]String{"\t"},
         .resolveProvider = true,
@@ -38,36 +38,38 @@ pub fn setupCapabilitiesAndHandlers(srv: *Server) void {
     srv.api.onRequest(.completionItem_resolve, onCompletionResolve);
 
     // FORMATTING
-    srv.precis.capabilities.documentRangeFormattingProvider = .{ .enabled = true };
+    srv.cfg.capabilities.documentRangeFormattingProvider = .{ .enabled = true };
     srv.api.onRequest(.textDocument_rangeFormatting, onFormatRange);
-    srv.precis.capabilities.documentOnTypeFormattingProvider = .{ .firstTriggerCharacter = "}" };
+    srv.cfg.capabilities.documentOnTypeFormattingProvider = .{ .firstTriggerCharacter = "}" };
     srv.api.onRequest(.textDocument_onTypeFormatting, onFormatOnType);
 
     // SYMBOLS
-    srv.precis.capabilities.documentSymbolProvider = .{ .enabled = true };
+    srv.cfg.capabilities.documentSymbolProvider = .{ .enabled = true };
     srv.api.onRequest(.textDocument_documentSymbol, onSymbols);
 
     // RENAME
-    srv.precis.capabilities.renameProvider = .{ .options = .{ .prepareProvider = true } };
+    srv.cfg.capabilities.renameProvider = .{ .options = .{ .prepareProvider = true } };
     srv.api.onRequest(.textDocument_rename, onRename);
     srv.api.onRequest(.textDocument_prepareRename, onRenamePrep);
 
     // SIGNATURE TOOLTIP
-    srv.precis.capabilities.signatureHelpProvider = .{
+    srv.cfg.capabilities.signatureHelpProvider = .{
         .triggerCharacters = ([_]String{ "[", "{" })[0..],
         .retriggerCharacters = ([_]String{ ",", ":" })[0..],
     };
     srv.api.onRequest(.textDocument_signatureHelp, onSignatureHelp);
 
     // SYMBOL HIGHLIGHT
-    srv.precis.capabilities.documentHighlightProvider = .{ .enabled = true };
+    srv.cfg.capabilities.documentHighlightProvider = .{ .enabled = true };
     srv.api.onRequest(.textDocument_documentHighlight, onSymbolHighlight);
 
     // CODE ACTIONS / COMMANDS
-    srv.precis.capabilities.codeActionProvider = .{ .enabled = true };
+    srv.cfg.capabilities.codeActionProvider = .{ .enabled = true };
     srv.api.onRequest(.textDocument_codeAction, onCodeActions);
-    srv.precis.capabilities.executeCommandProvider = .{ .commands = ([_]String{ "dummylangserver.caseup", "dummylangserver.caselo" })[0..] };
+    srv.cfg.capabilities.executeCommandProvider = .{ .commands = ([_]String{ "dummylangserver.caseup", "dummylangserver.caselo", "dummylangserver.infomsg" })[0..] };
     srv.api.onRequest(.workspace_executeCommand, onExecuteCommand);
+    srv.cfg.capabilities.codeLensProvider = .{ .resolveProvider = false };
+    srv.api.onRequest(.textDocument_codeLens, onCodeLenses);
 }
 
 fn onInitialized(ctx: Server.Ctx(InitializedParams)) !void {
@@ -299,7 +301,11 @@ fn onExecuteCommand(ctx: Server.Ctx(ExecuteCommandParams)) !Result(?jsonic.AnyVa
     if (ctx.value.arguments) |args|
         if (args.len == 1) switch (args[0]) {
             else => {},
-            .string => |src_file_uri| {
+            .string => |arg| if (std.mem.eql(u8, ctx.value.command, "dummylangserver.infomsg")) {
+                try ctx.inst.api.notify(.window_showMessage, ShowMessageParams{ .@"type" = .Info, .message = arg });
+                return Result(?jsonic.AnyValue){ .ok = null };
+            } else {
+                const src_file_uri = arg;
                 const is_to_upper = std.mem.eql(u8, ctx.value.command, "dummylangserver.caseup");
                 const is_to_lower = std.mem.eql(u8, ctx.value.command, "dummylangserver.caselo");
                 if (is_to_upper or is_to_lower) {
@@ -337,4 +343,20 @@ fn onExecuteCommand(ctx: Server.Ctx(ExecuteCommandParams)) !Result(?jsonic.AnyVa
             },
         };
     return fail(?jsonic.AnyValue);
+}
+
+fn onCodeLenses(ctx: Server.Ctx(CodeLensParams)) !Result(?[]CodeLens) {
+    var lenses = try ctx.mem.alloc(CodeLens, 3);
+    for (lenses) |_, i| {
+        lenses[i].range = .{ .start = .{ .line = 2 + 2 * @intCast(isize, i), .character = 6 }, .end = .{ .line = 2 + 2 * @intCast(isize, i), .character = 42 } };
+        lenses[i].command = .{
+            .title = try std.fmt.allocPrint(ctx.mem, "Codelens #{d}", .{i}),
+            .command = "dummylangserver.infomsg",
+            .arguments = try ctx.mem.alloc(jsonic.AnyValue, 1),
+        };
+        lenses[i].command.?.arguments.?[0] = .{
+            .string = try std.fmt.allocPrint(ctx.mem, "This is the info message for codelens #{d}", .{i}),
+        };
+    }
+    return Result(?[]CodeLens){ .ok = lenses };
 }

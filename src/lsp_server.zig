@@ -10,7 +10,7 @@ const LspApi = jsonic.Rpc.Api(Server, api_server_side, JsonOptions);
 pub const Server = struct {
     pub const Ctx = LspApi.Ctx;
 
-    precis: InitializeResult = InitializeResult{
+    cfg: InitializeResult = InitializeResult{
         .capabilities = ServerCapabilities{},
         .serverInfo = .{ .name = "unnamed" },
     },
@@ -36,7 +36,7 @@ pub const Server = struct {
             return error.CallerAlreadySubscribedToLspServerReservedExitMsg;
 
         if (name_for_own_req_ids.len == 0)
-            name_for_own_req_ids = me.precis.serverInfo.?.name;
+            name_for_own_req_ids = me.cfg.serverInfo.?.name;
         me.mem_forever = std.heap.ArenaAllocator.init(me.api.mem_alloc_for_arenas);
         defer {
             me.mem_forever.?.deinit();
@@ -75,7 +75,7 @@ pub const Server = struct {
 fn on_initialize(ctx: LspApi.Ctx(InitializeParams)) !jsonic.Rpc.Result(InitializeResult) {
     const me: *Server = ctx.inst;
     me.initialized = try zag.mem.fullDeepCopyTo(&me.mem_forever.?, ctx.value);
-    return jsonic.Rpc.Result(InitializeResult){ .ok = me.precis };
+    return jsonic.Rpc.Result(InitializeResult){ .ok = me.cfg };
 }
 
 fn on_cancel(ctx: LspApi.Ctx(CancelParams)) error{}!void {

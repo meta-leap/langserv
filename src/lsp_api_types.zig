@@ -339,7 +339,7 @@ pub const ClientCapabilities = struct {
         configuration: ?bool = null,
     } = null,
     textDocument: ?TextDocumentClientCapabilities = null,
-    // experimental: ?jsonic.AnyValue = null,
+    experimental: ?jsonic.AnyValue = null,
 
     pub const ExecuteCommandClientCapabilities = struct {
         dynamicRegistration: ?bool = null,
@@ -638,7 +638,7 @@ pub const ServerCapabilities = struct {
         enabled: bool,
         options: SelectionRangeOptions,
     } = null,
-    // experimental: ?jsonic.AnyValue = null,
+    experimental: ?jsonic.AnyValue = null,
 
     pub const CodeLensOptions = struct {
         WorkDoneProgressOptions: ?WorkDoneProgressOptions = null,
@@ -981,7 +981,7 @@ pub const CompletionItem = struct {
     additionalTextEdits: ?[]TextEdit = null,
     commitCharacters: ?[]String = null,
     command: ?String = null,
-    // data: ?jsonic.AnyValue = null,
+    data: ?jsonic.AnyValue = null,
 };
 
 pub const Hover = struct {
@@ -1081,7 +1081,7 @@ pub const CodeLensParams = struct {
 pub const CodeLens = struct {
     range: Range,
     command: ?Command = null,
-    // data: ?jsonic.AnyValue = null,
+    data: ?jsonic.AnyValue = null,
 };
 
 pub const DocumentLinkParams = struct {
@@ -1094,7 +1094,7 @@ pub const DocumentLink = struct {
     range: Range,
     target: ?DocumentUri = null,
     toolTip: ?String = null,
-    // data: ?jsonic.AnyValue = null,
+    data: ?jsonic.AnyValue = null,
 };
 
 pub const DocumentColorParams = struct {
