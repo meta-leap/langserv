@@ -5,10 +5,6 @@ usingnamespace @import("../langserv.zig");
 usingnamespace jsonic.Rpc;
 const utils = @import("./utils.zig");
 
-fn fail(comptime T: type) Result(T) {
-    return Result(T){ .err = .{ .code = 12121, .message = "somewhere there's a bug in here." } };
-}
-
 pub fn setupCapabilitiesAndHandlers(srv: *Server) void {
     srv.api.onNotify(.initialized, onInitialized);
     srv.api.onRequest(.shutdown, onShutdown);
@@ -74,6 +70,10 @@ pub fn setupCapabilitiesAndHandlers(srv: *Server) void {
     // SELECTION RANGE
     srv.cfg.capabilities.selectionRangeProvider = .{ .enabled = true };
     srv.api.onRequest(.textDocument_selectionRange, onSelectionRange);
+
+    // CODE LOCATIONS
+    srv.cfg.capabilities.referencesProvider = .{ .enabled = true };
+    srv.api.onRequest(.textDocument_references, onReferences);
 }
 
 fn onInitialized(ctx: Server.Ctx(InitializedParams)) !void {
@@ -133,45 +133,19 @@ fn onCompletionResolve(ctx: Server.Ctx(CompletionItem)) !Result(CompletionItem) 
 }
 
 fn onFormatRange(ctx: Server.Ctx(DocumentRangeFormattingParams)) !Result(?[]TextEdit) {
-    const edit = (try doFormat(ctx.value.textDocument.uri, ctx.value.range, ctx.mem)) orelse
-        return fail(?[]TextEdit);
+    const edit = (try utils.format(ctx.value.textDocument.uri, ctx.value.range, ctx.mem)) orelse
+        return utils.fail(?[]TextEdit);
     const edits = try ctx.mem.alloc(TextEdit, 1);
     edits[0] = edit;
     return Result(?[]TextEdit){ .ok = edits };
 }
 
 fn onFormatOnType(ctx: Server.Ctx(DocumentOnTypeFormattingParams)) !Result(?[]TextEdit) {
-    var edit = (try doFormat(ctx.value.TextDocumentPositionParams.textDocument.uri, null, ctx.mem)) orelse
-        return fail(?[]TextEdit);
+    var edit = (try utils.format(ctx.value.TextDocumentPositionParams.textDocument.uri, null, ctx.mem)) orelse
+        return utils.fail(?[]TextEdit);
     const edits = try ctx.mem.alloc(TextEdit, 1);
     edits[0] = edit;
     return Result(?[]TextEdit){ .ok = edits };
-}
-
-fn doFormat(src_file_uri: String, src_range: ?Range, mem: *std.mem.Allocator) !?TextEdit {
-    var src = if (utils.src_files_cache.?.get(src_file_uri)) |in_cache|
-        try std.mem.dupe(mem, u8, in_cache.value)
-    else
-        try std.fs.cwd().readFileAlloc(mem, zag.mem.trimPrefix(u8, src_file_uri, "file://"), std.math.maxInt(usize));
-
-    var ret_range: Range = undefined;
-    if (src_range) |range| {
-        ret_range = range;
-        src = (try range.slice(src)) orelse return null;
-    } else
-        ret_range = (try Range.initFrom(src)) orelse return null;
-
-    for (src) |char, i| {
-        if (char == ' ')
-            src[i] = '\t'
-        else if (char == '\t')
-            src[i] = ' ';
-    }
-    return TextEdit{ .range = ret_range, .newText = trimRight(src) };
-}
-
-fn trimRight(str: []const u8) []const u8 {
-    return std.mem.trimRight(u8, str, "\t\r\n");
 }
 
 fn onSymbols(ctx: Server.Ctx(DocumentSymbolParams)) !Result(?DocumentSymbols) {
@@ -190,46 +164,13 @@ fn onSymbols(ctx: Server.Ctx(DocumentSymbolParams)) !Result(?DocumentSymbols) {
     return Result(?DocumentSymbols){ .ok = .{ .hierarchy = symbols } };
 }
 
-const RenameHelper = struct {
-    src: []const u8,
-    word_start: usize,
-    word_end: usize,
-    full_src_range: Range,
-
-    fn init(mem: *std.mem.Allocator, src_file_uri: []const u8, position: Position) !?RenameHelper {
-        var ret: RenameHelper = undefined;
-        ret.src = if (utils.src_files_cache.?.get(src_file_uri)) |in_cache|
-            try std.mem.dupe(mem, u8, in_cache.value)
-        else
-            try std.fs.cwd().readFileAlloc(mem, zag.mem.trimPrefix(u8, src_file_uri, "file://"), std.math.maxInt(usize));
-
-        if (try Range.initFrom(ret.src)) |*range| {
-            ret.full_src_range = range.*;
-            if (try position.toByteIndexIn(ret.src)) |pos|
-                if ((ret.src[pos] >= 'a' and ret.src[pos] <= 'z') or (ret.src[pos] >= 'A' and ret.src[pos] <= 'Z')) {
-                    ret.word_start = pos;
-                    ret.word_end = pos;
-                    while (ret.word_end < ret.src.len and ((ret.src[ret.word_end] >= 'a' and ret.src[ret.word_end] <= 'z') or (ret.src[ret.word_end] >= 'A' and ret.src[ret.word_end] <= 'Z')))
-                        ret.word_end += 1;
-                    while (ret.word_start >= 0 and ((ret.src[ret.word_start] >= 'a' and ret.src[ret.word_start] <= 'z') or (ret.src[ret.word_start] >= 'A' and ret.src[ret.word_start] <= 'Z')))
-                        ret.word_start -= 1;
-                    ret.word_start += 1;
-
-                    if (ret.word_start < ret.word_end)
-                        return ret;
-                };
-        }
-        return null;
-    }
-};
-
 fn onRename(ctx: Server.Ctx(RenameParams)) !Result(?WorkspaceEdit) {
     const src_file_uri = ctx.value.TextDocumentPositionParams.textDocument.uri;
-    if (try RenameHelper.init(ctx.mem, src_file_uri, ctx.value.TextDocumentPositionParams.position)) |ren| {
-        const new_src = try zag.mem.replace(u8, ctx.mem, ren.src, ren.src[ren.word_start..ren.word_end], ctx.value.newName);
+    if (try utils.PseudoNameHelper.init(ctx.mem, src_file_uri, ctx.value.TextDocumentPositionParams.position)) |name_helper| {
+        const new_src = try zag.mem.replace(u8, ctx.mem, name_helper.src, name_helper.src[name_helper.word_start..name_helper.word_end], ctx.value.newName);
 
         var edits = try ctx.mem.alloc(TextEdit, 1);
-        edits[0] = .{ .newText = trimRight(new_src), .range = ren.full_src_range };
+        edits[0] = .{ .newText = utils.trimRight(new_src), .range = name_helper.full_src_range };
         var ret = WorkspaceEdit{ .changes = std.StringHashMap([]TextEdit).init(ctx.mem) };
         _ = try ret.changes.?.put(src_file_uri, edits);
 
@@ -240,8 +181,8 @@ fn onRename(ctx: Server.Ctx(RenameParams)) !Result(?WorkspaceEdit) {
 
 fn onRenamePrep(ctx: Server.Ctx(TextDocumentPositionParams)) !Result(?RenamePrep) {
     const src_file_uri = ctx.value.textDocument.uri;
-    if (try RenameHelper.init(ctx.mem, src_file_uri, ctx.value.position)) |ren|
-        if (try Range.initFromSlice(ren.src, ren.word_start, ren.word_end)) |range| {
+    if (try utils.PseudoNameHelper.init(ctx.mem, src_file_uri, ctx.value.position)) |name_helper|
+        if (try Range.initFromSlice(name_helper.src, name_helper.word_start, name_helper.word_end)) |range| {
             return Result(?RenamePrep){ .ok = .{ .augmented = .{ .placeholder = "Hint text goes here.", .range = range } } };
         };
     return Result(?RenamePrep){ .ok = null };
@@ -263,18 +204,13 @@ fn onSignatureHelp(ctx: Server.Ctx(SignatureHelpParams)) !Result(?SignatureHelp)
 
 fn onSymbolHighlight(ctx: Server.Ctx(DocumentHighlightParams)) !Result(?[]DocumentHighlight) {
     const src_file_uri = ctx.value.TextDocumentPositionParams.textDocument.uri;
-    if (try RenameHelper.init(ctx.mem, src_file_uri, ctx.value.TextDocumentPositionParams.position)) |ren| {
-        const word = ren.src[ren.word_start..ren.word_end];
-        var syms = try std.ArrayList(DocumentHighlight).initCapacity(ctx.mem, 8);
-        var i: usize = 0;
-        while (i < ren.src.len) {
-            if (std.mem.indexOfPos(u8, ren.src, i, word)) |idx| {
-                i = idx + word.len;
-                try syms.append(.{ .range = (try Range.initFromSlice(ren.src, idx, i)) orelse continue });
-            } else
-                break;
+    if (try utils.gatherPseudoNameLocations(ctx.mem, src_file_uri, ctx.value.TextDocumentPositionParams.position)) |ranges| {
+        var syms = try ctx.mem.alloc(DocumentHighlight, ranges.len);
+        for (syms) |_, i| {
+            syms[i].kind = .Text;
+            syms[i].range = ranges[i];
         }
-        return Result(?[]DocumentHighlight){ .ok = syms.items[0..syms.len] };
+        return Result(?[]DocumentHighlight){ .ok = syms };
     }
     return Result(?[]DocumentHighlight){ .ok = null };
 }
@@ -313,7 +249,7 @@ fn onExecuteCommand(ctx: Server.Ctx(ExecuteCommandParams)) !Result(?jsonic.AnyVa
                         }
 
                         var edits = try ctx.mem.alloc(TextEdit, 1);
-                        edits[0] = .{ .newText = trimRight(src), .range = full_src_range };
+                        edits[0] = .{ .newText = utils.trimRight(src), .range = full_src_range };
                         var edit = WorkspaceEdit{ .changes = std.StringHashMap([]TextEdit).init(ctx.mem) };
                         _ = try edit.changes.?.put(src_file_uri, edits);
 
@@ -333,7 +269,7 @@ fn onExecuteCommand(ctx: Server.Ctx(ExecuteCommandParams)) !Result(?jsonic.AnyVa
                 }
             },
         };
-    return fail(?jsonic.AnyValue);
+    return utils.fail(?jsonic.AnyValue);
 }
 
 fn onCodeLenses(ctx: Server.Ctx(CodeLensParams)) !Result(?[]CodeLens) {
@@ -357,11 +293,24 @@ fn onSelectionRange(ctx: Server.Ctx(SelectionRangeParams)) !Result(?[]SelectionR
     var ranges = try ctx.mem.alloc(SelectionRange, ctx.value.positions.len);
     for (ctx.value.positions) |pos, i| {
         ranges[i].parent = null;
-        if (try RenameHelper.init(ctx.mem, src_file_uri, pos)) |ren|
-            ranges[i].range = (try Range.initFromSlice(ren.src, ren.word_start, ren.word_end)) orelse
+        if (try utils.PseudoNameHelper.init(ctx.mem, src_file_uri, pos)) |name_helper|
+            ranges[i].range = (try Range.initFromSlice(name_helper.src, name_helper.word_start, name_helper.word_end)) orelse
                 return Result(?[]SelectionRange){ .ok = null }
         else
             return Result(?[]SelectionRange){ .ok = null };
     }
     return Result(?[]SelectionRange){ .ok = ranges };
+}
+
+fn onReferences(ctx: Server.Ctx(ReferenceParams)) !Result(?[]Location) {
+    const src_file_uri = ctx.value.TextDocumentPositionParams.textDocument.uri;
+    if (try utils.gatherPseudoNameLocations(ctx.mem, src_file_uri, ctx.value.TextDocumentPositionParams.position)) |ranges| {
+        var locs = try ctx.mem.alloc(Location, ranges.len);
+        for (locs) |_, i| {
+            locs[i].uri = src_file_uri;
+            locs[i].range = ranges[i];
+        }
+        return Result(?[]Location){ .ok = locs };
+    }
+    return Result(?[]Location){ .ok = null };
 }

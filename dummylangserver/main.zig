@@ -11,14 +11,11 @@ fn stdoutWrite(out_bytes: []const u8) !void {
 pub fn main() !u8 {
     var server = lsp.Server{ .onOutput = stdoutWrite };
     setupServer(&server);
-    try server.forever(
-        &std.io.getStdIn().inStream().stream,
-    );
-    return 1; // lsp.Server.forever does a proper os.Exit(0) when so instructed by lang-client (which conventionally also launched it)
+    try server.forever(&std.io.getStdIn().inStream().stream);
+    return 1; // lsp.Server.forever does a proper os.exit(0) when so instructed by lang-client (which conventionally also launched it)
 }
 
 fn setupServer(server: *lsp.Server) void {
-    server.onOutput = stdoutWrite;
     server.cfg.serverInfo.?.name = "dummylangserver";
     @import("./setup.zig").setupCapabilitiesAndHandlers(server);
 }
