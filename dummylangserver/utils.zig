@@ -38,7 +38,7 @@ pub fn fail(comptime T: type) Result(T) {
 }
 
 pub fn trimRight(str: []const u8) []const u8 {
-    return std.mem.trimRight(u8, str, "\t\r\n");
+    return std.mem.trimRight(u8, str, " \t\r\n");
 }
 
 pub fn format(src_file_uri: String, src_range: ?Range, mem: *std.mem.Allocator) !?TextEdit {
@@ -60,7 +60,7 @@ pub fn format(src_file_uri: String, src_range: ?Range, mem: *std.mem.Allocator) 
         else if (char == '\t')
             src[i] = ' ';
     }
-    return TextEdit{ .range = ret_range, .newText = trimRight(src) };
+    return TextEdit{ .range = ret_range, .newText = src };
 }
 
 pub fn gatherPseudoNameLocations(mem: *std.mem.Allocator, src_file_uri: String, pos: Position) !?[]Range {

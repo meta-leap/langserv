@@ -75,6 +75,8 @@ pub const Server = struct {
 fn on_initialize(ctx: LspApi.Ctx(InitializeParams)) !jsonic.Rpc.Result(InitializeResult) {
     const me: *Server = ctx.inst;
     me.initialized = try zag.mem.fullDeepCopyTo(&me.mem_forever.?, ctx.value);
+    if (me.initialized.?.clientInfo == null)
+        me.initialized.?.clientInfo = .{ .name = "SomeUnnamedLspClient" };
     return jsonic.Rpc.Result(InitializeResult){ .ok = me.cfg };
 }
 

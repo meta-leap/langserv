@@ -62,7 +62,13 @@ pub fn setupCapabilitiesAndHandlers(srv: *Server) void {
     // CODE ACTIONS / COMMANDS
     srv.cfg.capabilities.codeActionProvider = .{ .enabled = true };
     srv.api.onRequest(.textDocument_codeAction, onCodeActions);
-    srv.cfg.capabilities.executeCommandProvider = .{ .commands = ([_]String{ "dummylangserver.caseup", "dummylangserver.caselo", "dummylangserver.infomsg" })[0..] };
+    srv.cfg.capabilities.executeCommandProvider = .{
+        .commands = ([_]String{
+            "dummylangserver.caseup",
+            "dummylangserver.caselo",
+            "dummylangserver.infomsg",
+        })[0..],
+    };
     srv.api.onRequest(.workspace_executeCommand, onExecuteCommand);
     srv.cfg.capabilities.codeLensProvider = .{ .resolveProvider = false };
     srv.api.onRequest(.textDocument_codeLens, onCodeLenses);
@@ -73,7 +79,15 @@ pub fn setupCapabilitiesAndHandlers(srv: *Server) void {
 
     // CODE LOCATIONS
     srv.cfg.capabilities.referencesProvider = .{ .enabled = true };
-    srv.api.onRequest(.textDocument_references, onReferences);
+    srv.api.onRequest(.textDocument_references, Locs(ReferenceParams, []Location).handle);
+    srv.cfg.capabilities.definitionProvider = .{ .enabled = true };
+    srv.api.onRequest(.textDocument_definition, Locs(DefinitionParams, Locations).handle);
+    srv.cfg.capabilities.typeDefinitionProvider = .{ .enabled = true };
+    srv.api.onRequest(.textDocument_typeDefinition, Locs(TypeDefinitionParams, Locations).handle);
+    srv.cfg.capabilities.declarationProvider = .{ .enabled = true };
+    srv.api.onRequest(.textDocument_declaration, Locs(DeclarationParams, Locations).handle);
+    srv.cfg.capabilities.implementationProvider = .{ .enabled = true };
+    srv.api.onRequest(.textDocument_implementation, Locs(ImplementationParams, Locations).handle);
 }
 
 fn onInitialized(ctx: Server.Ctx(InitializedParams)) !void {
@@ -81,10 +95,7 @@ fn onInitialized(ctx: Server.Ctx(InitializedParams)) !void {
     std.debug.warn("\nINIT\t{}\n", .{ctx.value});
     try ctx.inst.api.notify(.window_showMessage, ShowMessageParams{
         .@"type" = .Warning,
-        .message = try std.fmt.allocPrint(ctx.mem, "So it's you... {} {}.", .{
-            ctx.inst.initialized.?.clientInfo.?.name,
-            ctx.inst.initialized.?.clientInfo.?.version,
-        }),
+        .message = try std.fmt.allocPrint(ctx.mem, "So it's you... {}", .{ctx.inst.initialized.?.clientInfo.?.name}),
     });
 }
 
@@ -302,15 +313,24 @@ fn onSelectionRange(ctx: Server.Ctx(SelectionRangeParams)) !Result(?[]SelectionR
     return Result(?[]SelectionRange){ .ok = ranges };
 }
 
-fn onReferences(ctx: Server.Ctx(ReferenceParams)) !Result(?[]Location) {
-    const src_file_uri = ctx.value.TextDocumentPositionParams.textDocument.uri;
-    if (try utils.gatherPseudoNameLocations(ctx.mem, src_file_uri, ctx.value.TextDocumentPositionParams.position)) |ranges| {
-        var locs = try ctx.mem.alloc(Location, ranges.len);
-        for (locs) |_, i| {
-            locs[i].uri = src_file_uri;
-            locs[i].range = ranges[i];
+fn Locs(comptime TArg: type, comptime TRet: type) type {
+    return struct {
+        fn handle(ctx: Server.Ctx(TArg)) !Result(?TRet) {
+            const src_file_uri = ctx.value.TextDocumentPositionParams.textDocument.uri;
+            if (try utils.gatherPseudoNameLocations(ctx.mem, src_file_uri, ctx.value.TextDocumentPositionParams.position)) |ranges| {
+                var locs = try ctx.mem.alloc(Location, ranges.len);
+                for (locs) |_, i| {
+                    locs[i].uri = src_file_uri;
+                    locs[i].range = ranges[i];
+                }
+                if (TRet == []Location)
+                    return Result(?TRet){ .ok = locs }
+                else if (TRet == Locations)
+                    return Result(?TRet){ .ok = .{ .locations = locs } }
+                else
+                    @compileError(@typeName(TRet));
+            }
+            return Result(?TRet){ .ok = null };
         }
-        return Result(?[]Location){ .ok = locs };
-    }
-    return Result(?[]Location){ .ok = null };
+    };
 }
