@@ -1,7 +1,7 @@
 const std = @import("std");
-const zag = @import("../../zag/api.zig");
-usingnamespace @import("../api.zig");
-usingnamespace @import("../../jsonic/api.zig").Rpc;
+const zag = @import("../../zag/zag.zig");
+usingnamespace @import("../langserv.zig");
+usingnamespace @import("../../jsonic/jsonic.zig").Rpc;
 const utils = @import("./utils.zig");
 
 fn fail(comptime T: type) Result(T) {
@@ -202,7 +202,7 @@ const RenameHelper = struct {
 fn onRename(ctx: Server.Ctx(RenameParams)) !Result(?WorkspaceEdit) {
     const src_file_uri = ctx.value.TextDocumentPositionParams.textDocument.uri;
     if (try RenameHelper.init(ctx.mem, src_file_uri, ctx.value.TextDocumentPositionParams.position)) |ren| {
-        const new_src = try zag.mem.replace(u8, ren.src, ren.src[ren.word_start..ren.word_end], ctx.value.newName, ctx.mem);
+        const new_src = try zag.mem.replace(u8, ctx.mem, ren.src, ren.src[ren.word_start..ren.word_end], ctx.value.newName);
 
         var edits = try ctx.mem.alloc(TextEdit, 1);
         edits[0] = .{ .newText = trimRight(new_src), .range = ren.range };
@@ -223,7 +223,7 @@ fn onRenamePrep(ctx: Server.Ctx(TextDocumentPositionParams)) !Result(?RenamePrep
                 return Result(?RenamePrep){
                     .ok = .{
                         .augmented = .{
-                            .placeholder = "Hint text goes here",
+                            .placeholder = "Hint text goes here.",
                             .range = .{ .start = pos_start, .end = pos_end },
                         },
                     },

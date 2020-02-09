@@ -1,7 +1,6 @@
 const std = @import("std");
-const zag = @import("../../zag/api.zig");
-const jsonic = @import("../../jsonic/api.zig");
-
+const zag = @import("../../zag/zag.zig");
+const jsonic = @import("../../jsonic/jsonic.zig");
 usingnamespace @import("./lsp_api_messages.zig");
 usingnamespace @import("./lsp_api_types.zig");
 usingnamespace @import("./lsp_common.zig");
@@ -67,9 +66,9 @@ pub const Server = struct {
         }
     }
 
-    fn onOutputPrependHeader(me: *Server, owner: *std.mem.Allocator, raw_json_bytes_to_output: []const u8) void {
-        std.debug.warn("\n\n>>>>>>>>>>>>>{}<<<<<<<<<<\n\n", .{raw_json_bytes_to_output});
-        callOnOutputHandlerWithHeaderPrependedOrCrash(me.onOutput, owner, raw_json_bytes_to_output);
+    fn onOutputPrependHeader(mem: *std.mem.Allocator, me: *Server, raw_json_bytes_to_output: []const u8) void {
+        // std.debug.warn("\n\n>>>>>>>>>>>>>{}<<<<<<<<<<\n\n", .{raw_json_bytes_to_output});
+        callOnOutputHandlerWithHeaderPrependedOrCrash(mem, me.onOutput, raw_json_bytes_to_output);
     }
 };
 

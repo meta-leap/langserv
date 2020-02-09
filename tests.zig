@@ -1,7 +1,7 @@
 const std = @import("std");
 
 test "" {
-    const lsp = @import("./api.zig");
+    const lsp = @import("./langserv.zig");
 
     _ = lsp.api_server_side;
     _ = lsp.Server.forever;

@@ -1,5 +1,5 @@
 const std = @import("std");
-const jsonic = @import("../../jsonic/api.zig");
+const jsonic = @import("../../jsonic/jsonic.zig");
 
 // TODO: catch up on spec changes since last check of: 06 Feb 2020
 // https://microsoft.github.io/language-server-protocol/specifications/specification-current/

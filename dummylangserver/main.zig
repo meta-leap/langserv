@@ -1,7 +1,6 @@
 const std = @import("std");
-const lsp = @import("../api.zig");
-
-usingnamespace @import("../../jsonic/api.zig").Rpc;
+const lsp = @import("../langserv.zig");
+usingnamespace @import("../../jsonic/jsonic.zig").Rpc;
 
 const stdout = std.io.getStdOut();
 

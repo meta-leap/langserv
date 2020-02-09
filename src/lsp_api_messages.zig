@@ -1,8 +1,6 @@
 const std = @import("std");
-const jsonic = @import("../../jsonic/api.zig");
-
+const jsonic = @import("../../jsonic/jsonic.zig");
 usingnamespace jsonic.Rpc;
-
 usingnamespace @import("./lsp_api_types.zig");
 
 pub const api_client_side = api_server_side.inverse(null);

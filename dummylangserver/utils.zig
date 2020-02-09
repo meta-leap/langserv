@@ -1,6 +1,6 @@
 const std = @import("std");
-usingnamespace @import("../api.zig");
-usingnamespace @import("../../jsonic/api.zig").Rpc;
+usingnamespace @import("../langserv.zig");
+usingnamespace @import("../../jsonic/jsonic.zig").Rpc;
 
 pub var src_files_cache: ?std.StringHashMap(String) = null;
 
