@@ -23,7 +23,7 @@ pub fn setupCapabilitiesAndHandlers(srv: *Server) void {
     srv.api.onNotify(.textDocument_didOpen, utils.onFileBufOpened);
     srv.api.onNotify(.textDocument_didChange, utils.onFileBufEdited);
 
-    // HOVER
+    // HOVER TOOLTIP
     srv.precis.capabilities.hoverProvider = .{ .enabled = true };
     srv.api.onRequest(.textDocument_hover, onHover);
 
@@ -50,6 +50,13 @@ pub fn setupCapabilitiesAndHandlers(srv: *Server) void {
     srv.precis.capabilities.renameProvider = .{ .options = .{ .prepareProvider = true } };
     srv.api.onRequest(.textDocument_rename, onRename);
     srv.api.onRequest(.textDocument_prepareRename, onRenamePrep);
+
+    // SIGNATURE TOOLTIP
+    srv.precis.capabilities.signatureHelpProvider = .{
+        .triggerCharacters = ([_]String{ "[", "{" })[0..],
+        .retriggerCharacters = ([_]String{ ",", ":" })[0..],
+    };
+    srv.api.onRequest(.textDocument_signatureHelp, onSignatureHelp);
 }
 
 fn onInitialized(ctx: Server.Ctx(InitializedParams)) !void {
@@ -231,4 +238,18 @@ fn onRenamePrep(ctx: Server.Ctx(TextDocumentPositionParams)) !Result(?RenamePrep
             };
 
     return Result(?RenamePrep){ .ok = null };
+}
+
+fn onSignatureHelp(ctx: Server.Ctx(SignatureHelpParams)) !Result(?SignatureHelp) {
+    var sigs = try ctx.mem.alloc(SignatureInformation, 3);
+    for (sigs) |_, i| {
+        sigs[i].label = try std.fmt.allocPrint(ctx.mem, "Signature {} label", .{i});
+        sigs[i].documentation = MarkupContent{ .value = try std.fmt.allocPrint(ctx.mem, "Signature **{}** markdown with `bells` & *whistles*..", .{i}) };
+        sigs[i].parameters = try ctx.mem.alloc(ParameterInformation, 2);
+        sigs[i].parameters.?[0].label = try std.fmt.allocPrint(ctx.mem, "Signature {}, param 0 label", .{i});
+        sigs[i].parameters.?[0].documentation = MarkupContent{ .value = try std.fmt.allocPrint(ctx.mem, "Signature **{}**, param 0 markdown with `bells` & *whistles*..", .{i}) };
+        sigs[i].parameters.?[1].label = try std.fmt.allocPrint(ctx.mem, "Signature {}, param 1 label", .{i});
+        sigs[i].parameters.?[1].documentation = MarkupContent{ .value = try std.fmt.allocPrint(ctx.mem, "Signature **{}**, param 1 markdown with `bells` & *whistles*..", .{i}) };
+    }
+    return Result(?SignatureHelp){ .ok = .{ .signatures = sigs } };
 }

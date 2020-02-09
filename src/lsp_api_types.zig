@@ -745,8 +745,8 @@ pub const ServerCapabilities = struct {
     pub const SignatureHelpOptions = struct {
         WorkDoneProgressOptions: ?WorkDoneProgressOptions = null,
         TextDocumentRegistrationOptions: ?TextDocumentRegistrationOptions = null,
-        triggerCharacters: ?[]String = null,
-        retriggerCharacters: ?[]String = null,
+        triggerCharacters: ?[]const String = null,
+        retriggerCharacters: ?[]const String = null,
     };
 
     pub const WorkspaceSymbolOptions = struct {
