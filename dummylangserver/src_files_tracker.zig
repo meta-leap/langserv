@@ -60,3 +60,10 @@ fn pushDiagnostics(mem: *std.mem.Allocator, srv: *Server, src_file_uri: String, 
         .diagnostics = diags.items[0..diags.len],
     });
 }
+
+pub fn onFileEvents(ctx: Server.Ctx(DidChangeWatchedFilesParams)) !void {
+    try ctx.inst.api.notify(.window_showMessage, ShowMessageParams{
+        .@"type" = .Info,
+        .message = try std.fmt.allocPrint(ctx.mem, "{}", .{ctx.value.changes}),
+    });
+}

@@ -17,7 +17,7 @@ pub fn callOnOutputHandlerWithHeaderPrependedOrCrash(
         |err| @panic(@errorName(err));
 }
 
-pub const JsonOptions = jsonic.Rpc.Options{
+pub const jsonrpc_options = jsonic.Rpc.Options{
     .rewriteUnionFieldNameToJsonRpcMethodName = rewriteUnionFieldNameToJsonRpcMethodName,
     .rewriteJsonRpcMethodNameToUnionFieldName = rewriteJsonRpcMethodNameToUnionFieldName,
     .json = .{

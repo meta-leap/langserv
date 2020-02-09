@@ -862,7 +862,7 @@ pub const FileEvent = struct {
 };
 
 pub const DidChangeWatchedFilesRegistrationOptions = struct {
-    watchers: []FileSystemWatcher,
+    watchers: []const FileSystemWatcher,
 };
 
 pub const FileSystemWatcher = struct {

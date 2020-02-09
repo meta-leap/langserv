@@ -5,7 +5,7 @@ usingnamespace @import("./lsp_api_messages.zig");
 usingnamespace @import("./lsp_api_types.zig");
 usingnamespace @import("./lsp_common.zig");
 
-const LspApi = jsonic.Rpc.Api(Server, api_server_side, JsonOptions);
+const LspApi = jsonic.Rpc.Api(Server, api_server_side, jsonrpc_options);
 
 pub const Server = struct {
     pub const Ctx = LspApi.Ctx;

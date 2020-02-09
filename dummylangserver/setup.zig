@@ -20,6 +20,7 @@ pub fn setupCapabilitiesAndHandlers(srv: *Server) void {
     srv.api.onNotify(.textDocument_didClose, onFileClosed);
     srv.api.onNotify(.textDocument_didOpen, onFileBufOpened);
     srv.api.onNotify(.textDocument_didChange, onFileBufEdited);
+    srv.api.onNotify(.workspace_didChangeWatchedFiles, onFileEvents);
 
     // HOVER TOOLTIP
     srv.cfg.capabilities.hoverProvider = .{ .enabled = true };
@@ -89,20 +90,6 @@ pub fn setupCapabilitiesAndHandlers(srv: *Server) void {
     srv.api.onRequest(.textDocument_declaration, Locs(DeclarationParams, Locations).handle);
     srv.cfg.capabilities.implementationProvider = .{ .enabled = true };
     srv.api.onRequest(.textDocument_implementation, Locs(ImplementationParams, Locations).handle);
-}
-
-fn onInitialized(ctx: Server.Ctx(InitializedParams)) !void {
-    src_files_cache = std.StringHashMap(String).init(&ctx.inst.mem_forever.?.allocator);
-    std.debug.warn("\nINIT\t{}\n", .{ctx.value});
-    try ctx.inst.api.notify(.window_showMessage, ShowMessageParams{
-        .@"type" = .Warning,
-        .message = try std.fmt.allocPrint(ctx.mem, "So it's you... {}", .{ctx.inst.initialized.?.clientInfo.?.name}),
-    });
-}
-
-fn onShutdown(ctx: Server.Ctx(void)) error{}!Result(void) {
-    src_files_cache.deinit();
-    return Result(void){ .ok = {} };
 }
 
 fn onHover(ctx: Server.Ctx(HoverParams)) !Result(?Hover) {
@@ -345,4 +332,35 @@ fn Locs(comptime TArg: type, comptime TRet: type) type {
             return Result(?TRet){ .ok = null };
         }
     };
+}
+
+fn onInitialized(ctx: Server.Ctx(InitializedParams)) !void {
+    src_files_cache = std.StringHashMap(String).init(&ctx.inst.mem_forever.?.allocator);
+    std.debug.warn("\nonInitialized:\t{}\n", .{ctx.value});
+    try ctx.inst.api.notify(.window_showMessage, ShowMessageParams{
+        .@"type" = .Warning,
+        .message = try std.fmt.allocPrint(ctx.mem, "So it's you... {}", .{ctx.inst.initialized.?.clientInfo.?.name}),
+    });
+    try ctx.inst.api.request(.client_registerCapability, {}, RegistrationParams{
+        .registrations = ([1]Registration{Registration{
+            .method = "workspace/didChangeWatchedFiles",
+            .id = try std.fmt.allocPrint(ctx.mem, "unique_enough_{}", .{std.time.milliTimestamp()}),
+            .registerOptions = try jsonic.AnyValue.fromStd(ctx.mem, &(try jsonrpc_options.json.marshal(ctx.mem, DidChangeWatchedFilesRegistrationOptions{
+                .watchers = ([1]FileSystemWatcher{
+                    FileSystemWatcher{
+                        .globPattern = "**/*.dummy",
+                    },
+                })[0..],
+            }))),
+        }})[0..],
+    }, struct {
+        pub fn then(state: void, resp: Server.Ctx(Result(void))) error{}!void {
+            std.debug.warn("Result of attempt to register for `workspace/didChangeWatchedFiles` notifications: {}\n", .{resp.value});
+        }
+    });
+}
+
+fn onShutdown(ctx: Server.Ctx(void)) error{}!Result(void) {
+    src_files_cache.deinit();
+    return Result(void){ .ok = {} };
 }
