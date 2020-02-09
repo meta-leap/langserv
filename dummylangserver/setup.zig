@@ -57,6 +57,10 @@ pub fn setupCapabilitiesAndHandlers(srv: *Server) void {
         .retriggerCharacters = ([_]String{ ",", ":" })[0..],
     };
     srv.api.onRequest(.textDocument_signatureHelp, onSignatureHelp);
+
+    // SYMBOL HIGHLIGHT
+    srv.precis.capabilities.documentHighlightProvider = .{ .enabled = true };
+    srv.api.onRequest(.textDocument_documentHighlight, onSymbolHighlight);
 }
 
 fn onInitialized(ctx: Server.Ctx(InitializedParams)) !void {
@@ -177,7 +181,7 @@ const RenameHelper = struct {
     src: []const u8,
     word_start: usize,
     word_end: usize,
-    range: Range,
+    full_src_range: Range,
 
     fn init(mem: *std.mem.Allocator, src_file_uri: []const u8, position: Position) !?RenameHelper {
         var ret: RenameHelper = undefined;
@@ -187,7 +191,7 @@ const RenameHelper = struct {
             try std.fs.cwd().readFileAlloc(mem, zag.mem.trimPrefix(u8, src_file_uri, "file://"), std.math.maxInt(usize));
 
         if (try Range.initFrom(ret.src)) |*range| {
-            ret.range = range.*;
+            ret.full_src_range = range.*;
             if (try position.toByteIndexIn(ret.src)) |pos|
                 if ((ret.src[pos] >= 'a' and ret.src[pos] <= 'z') or (ret.src[pos] >= 'A' and ret.src[pos] <= 'Z')) {
                     ret.word_start = pos;
@@ -212,7 +216,7 @@ fn onRename(ctx: Server.Ctx(RenameParams)) !Result(?WorkspaceEdit) {
         const new_src = try zag.mem.replace(u8, ctx.mem, ren.src, ren.src[ren.word_start..ren.word_end], ctx.value.newName);
 
         var edits = try ctx.mem.alloc(TextEdit, 1);
-        edits[0] = .{ .newText = trimRight(new_src), .range = ren.range };
+        edits[0] = .{ .newText = trimRight(new_src), .range = ren.full_src_range };
         var ret = WorkspaceEdit{ .changes = std.StringHashMap([]TextEdit).init(ctx.mem) };
         _ = try ret.changes.?.put(src_file_uri, edits);
 
@@ -252,4 +256,29 @@ fn onSignatureHelp(ctx: Server.Ctx(SignatureHelpParams)) !Result(?SignatureHelp)
         sigs[i].parameters.?[1].documentation = MarkupContent{ .value = try std.fmt.allocPrint(ctx.mem, "Signature **{}**, param 1 markdown with `bells` & *whistles*..", .{i}) };
     }
     return Result(?SignatureHelp){ .ok = .{ .signatures = sigs } };
+}
+
+fn onSymbolHighlight(ctx: Server.Ctx(DocumentHighlightParams)) !Result(?[]DocumentHighlight) {
+    const src_file_uri = ctx.value.TextDocumentPositionParams.textDocument.uri;
+    if (try RenameHelper.init(ctx.mem, src_file_uri, ctx.value.TextDocumentPositionParams.position)) |ren| {
+        const word = ren.src[ren.word_start..ren.word_end];
+        var syms = try std.ArrayList(DocumentHighlight).initCapacity(ctx.mem, 8);
+        var i: usize = 0;
+        while (i < ren.src.len) {
+            if (std.mem.indexOfPos(u8, ren.src, i, word)) |idx| {
+                i = idx + word.len;
+                try syms.append(.{
+                    .range = .{
+                        .start = (try Position.fromByteIndexIn(ren.src, idx)) orelse continue,
+                        .end = (try Position.fromByteIndexIn(ren.src, i)) orelse continue,
+                    },
+                });
+            } else
+                break;
+        }
+
+        return Result(?[]DocumentHighlight){ .ok = syms.items[0..syms.len] };
+    }
+
+    return Result(?[]DocumentHighlight){ .ok = null };
 }
