@@ -1,7 +1,8 @@
 const std = @import("std");
 const zag = @import("../../zag/zag.zig");
+const jsonic = @import("../../jsonic/jsonic.zig");
 usingnamespace @import("../langserv.zig");
-usingnamespace @import("../../jsonic/jsonic.zig").Rpc;
+usingnamespace jsonic.Rpc;
 const utils = @import("./utils.zig");
 
 fn fail(comptime T: type) Result(T) {
@@ -61,6 +62,12 @@ pub fn setupCapabilitiesAndHandlers(srv: *Server) void {
     // SYMBOL HIGHLIGHT
     srv.precis.capabilities.documentHighlightProvider = .{ .enabled = true };
     srv.api.onRequest(.textDocument_documentHighlight, onSymbolHighlight);
+
+    // CODE ACTIONS / COMMANDS
+    srv.precis.capabilities.codeActionProvider = .{ .enabled = true };
+    srv.api.onRequest(.textDocument_codeAction, onCodeActions);
+    srv.precis.capabilities.executeCommandProvider = .{ .commands = ([_]String{ "dummylangserver.caseup", "dummylangserver.caselo" })[0..] };
+    srv.api.onRequest(.workspace_executeCommand, onExecuteCommand);
 }
 
 fn onInitialized(ctx: Server.Ctx(InitializedParams)) !void {
@@ -222,7 +229,6 @@ fn onRename(ctx: Server.Ctx(RenameParams)) !Result(?WorkspaceEdit) {
 
         return Result(?WorkspaceEdit){ .ok = ret };
     }
-
     return Result(?WorkspaceEdit){ .ok = null };
 }
 
@@ -240,7 +246,6 @@ fn onRenamePrep(ctx: Server.Ctx(TextDocumentPositionParams)) !Result(?RenamePrep
                     },
                 };
             };
-
     return Result(?RenamePrep){ .ok = null };
 }
 
@@ -276,9 +281,60 @@ fn onSymbolHighlight(ctx: Server.Ctx(DocumentHighlightParams)) !Result(?[]Docume
             } else
                 break;
         }
-
         return Result(?[]DocumentHighlight){ .ok = syms.items[0..syms.len] };
     }
-
     return Result(?[]DocumentHighlight){ .ok = null };
+}
+
+fn onCodeActions(ctx: Server.Ctx(CodeActionParams)) !Result(?[]CommandOrAction) {
+    var ret = try ctx.mem.alloc(CommandOrAction, 2);
+    var args = try ctx.mem.alloc(jsonic.AnyValue, 1);
+    args[0] = .{ .string = ctx.value.textDocument.uri };
+    ret[0] = .{ .command_only = .{ .title = "Uppercase all a-z", .command = "dummylangserver.caseup", .arguments = args } };
+    ret[1] = .{ .command_only = .{ .title = "Lowercase all A-Z", .command = "dummylangserver.caselo", .arguments = args } };
+    return Result(?[]CommandOrAction){ .ok = ret };
+}
+
+fn onExecuteCommand(ctx: Server.Ctx(ExecuteCommandParams)) !Result(?jsonic.AnyValue) {
+    if (ctx.value.arguments) |args|
+        if (args.len == 1) switch (args[0]) {
+            else => {},
+            .string => |src_file_uri| {
+                const is_to_upper = std.mem.eql(u8, ctx.value.command, "dummylangserver.caseup");
+                const is_to_lower = std.mem.eql(u8, ctx.value.command, "dummylangserver.caselo");
+                if (is_to_upper or is_to_lower) {
+                    var src = if (utils.src_files_cache.?.get(src_file_uri)) |in_cache|
+                        try std.mem.dupe(ctx.mem, u8, in_cache.value)
+                    else
+                        try std.fs.cwd().readFileAlloc(ctx.mem, zag.mem.trimPrefix(u8, src_file_uri, "file://"), std.math.maxInt(usize));
+                    if (try Range.initFrom(src)) |full_src_range| {
+                        for (src) |char, i| {
+                            if (is_to_lower and char >= 'A' and char <= 'Z')
+                                src[i] = char + 32
+                            else if (is_to_upper and char >= 'a' and char <= 'z')
+                                src[i] = char - 32;
+                        }
+
+                        var edits = try ctx.mem.alloc(TextEdit, 1);
+                        edits[0] = .{ .newText = trimRight(src), .range = full_src_range };
+                        var edit = WorkspaceEdit{ .changes = std.StringHashMap([]TextEdit).init(ctx.mem) };
+                        _ = try edit.changes.?.put(src_file_uri, edits);
+
+                        try ctx.inst.api.request(.workspace_applyEdit, {}, ApplyWorkspaceEditParams{ .edit = edit }, struct {
+                            pub fn then(state: void, resp: Server.Ctx(Result(ApplyWorkspaceEditResponse))) error{}!void {
+                                switch (resp.value) {
+                                    .err => |err| std.debug.warn("Requested edit not applied by client: {}\n", .{err}),
+                                    .ok => |outcome| if (!outcome.applied)
+                                        if (outcome.failureReason) |err|
+                                            std.debug.warn("Requested edit not applied by client: {}\n", .{err}),
+                                }
+                            }
+                        });
+
+                        return Result(?jsonic.AnyValue){ .ok = null };
+                    }
+                }
+            },
+        };
+    return fail(?jsonic.AnyValue);
 }

@@ -63,7 +63,7 @@ pub const api_server_side = Spec{
         textDocument_references: fn (ReferenceParams) ?[]Location,
         textDocument_documentHighlight: fn (DocumentHighlightParams) ?[]DocumentHighlight,
         textDocument_documentSymbol: fn (DocumentSymbolParams) ?DocumentSymbols,
-        textDocument_codeAction: fn (CodeActionParams) ?CodeActions,
+        textDocument_codeAction: fn (CodeActionParams) ?[]CommandOrAction,
         textDocument_codeLens: fn (CodeLensParams) ?[]CodeLens,
         codeLens_resolve: fn (CodeLens) CodeLens,
         textDocument_documentLink: fn (DocumentLinkParams) ?[]DocumentLink,
@@ -93,9 +93,9 @@ pub const DocumentSymbols = union(enum) {
     hierarchy: []DocumentSymbol,
 };
 
-pub const CodeActions = []union(enum) {
+pub const CommandOrAction = union(enum) {
+    command_only: Command,
     code_action: CodeAction,
-    command: Command,
 };
 
 pub const Locations = union(enum) {

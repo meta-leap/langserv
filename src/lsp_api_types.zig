@@ -660,7 +660,7 @@ pub const ServerCapabilities = struct {
 
     pub const ExecuteCommandOptions = struct {
         WorkDoneProgressOptions: ?WorkDoneProgressOptions = null,
-        commands: []String,
+        commands: []const String,
     };
 
     pub const CodeActionOptions = struct {
