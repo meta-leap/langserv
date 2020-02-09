@@ -3,6 +3,7 @@ const zag = @import("../../zag/zag.zig");
 const jsonic = @import("../../jsonic/jsonic.zig");
 usingnamespace @import("../langserv.zig");
 usingnamespace jsonic.Rpc;
+usingnamespace @import("./src_files_tracker.zig");
 const utils = @import("./utils.zig");
 
 pub fn setupCapabilitiesAndHandlers(srv: *Server) void {
@@ -16,9 +17,9 @@ pub fn setupCapabilitiesAndHandlers(srv: *Server) void {
             .change = TextDocumentSyncKind.Full,
         },
     };
-    srv.api.onNotify(.textDocument_didClose, utils.onFileClosed);
-    srv.api.onNotify(.textDocument_didOpen, utils.onFileBufOpened);
-    srv.api.onNotify(.textDocument_didChange, utils.onFileBufEdited);
+    srv.api.onNotify(.textDocument_didClose, onFileClosed);
+    srv.api.onNotify(.textDocument_didOpen, onFileBufOpened);
+    srv.api.onNotify(.textDocument_didChange, onFileBufEdited);
 
     // HOVER TOOLTIP
     srv.cfg.capabilities.hoverProvider = .{ .enabled = true };
@@ -91,7 +92,7 @@ pub fn setupCapabilitiesAndHandlers(srv: *Server) void {
 }
 
 fn onInitialized(ctx: Server.Ctx(InitializedParams)) !void {
-    utils.src_files_cache = std.StringHashMap(String).init(&ctx.inst.mem_forever.?.allocator);
+    src_files_cache = std.StringHashMap(String).init(&ctx.inst.mem_forever.?.allocator);
     std.debug.warn("\nINIT\t{}\n", .{ctx.value});
     try ctx.inst.api.notify(.window_showMessage, ShowMessageParams{
         .@"type" = .Warning,
@@ -100,7 +101,7 @@ fn onInitialized(ctx: Server.Ctx(InitializedParams)) !void {
 }
 
 fn onShutdown(ctx: Server.Ctx(void)) error{}!Result(void) {
-    utils.src_files_cache.?.deinit();
+    src_files_cache.deinit();
     return Result(void){ .ok = {} };
 }
 
@@ -144,18 +145,32 @@ fn onCompletionResolve(ctx: Server.Ctx(CompletionItem)) !Result(CompletionItem) 
 }
 
 fn onFormatRange(ctx: Server.Ctx(DocumentRangeFormattingParams)) !Result(?[]TextEdit) {
-    const edit = (try utils.format(ctx.value.textDocument.uri, ctx.value.range, ctx.mem)) orelse
-        return utils.fail(?[]TextEdit);
-    const edits = try ctx.mem.alloc(TextEdit, 1);
-    edits[0] = edit;
-    return Result(?[]TextEdit){ .ok = edits };
+    return onFormat(ctx.mem, ctx.value.textDocument.uri, ctx.value.range);
 }
 
 fn onFormatOnType(ctx: Server.Ctx(DocumentOnTypeFormattingParams)) !Result(?[]TextEdit) {
-    var edit = (try utils.format(ctx.value.TextDocumentPositionParams.textDocument.uri, null, ctx.mem)) orelse
-        return utils.fail(?[]TextEdit);
-    const edits = try ctx.mem.alloc(TextEdit, 1);
-    edits[0] = edit;
+    return onFormat(ctx.mem, ctx.value.TextDocumentPositionParams.textDocument.uri, null);
+}
+
+fn onFormat(mem: *std.mem.Allocator, src_file_uri: String, src_range: ?Range) !Result(?[]TextEdit) {
+    var src = try cachedOrFreshSrc(mem, src_file_uri);
+
+    var ret_range: Range = undefined;
+    if (src_range) |range| {
+        ret_range = range;
+        src = (try range.slice(src)) orelse return Result(?[]TextEdit){ .ok = null };
+    } else
+        ret_range = (try Range.initFrom(src)) orelse return Result(?[]TextEdit){ .ok = null };
+
+    for (src) |char, i| {
+        if (char == ' ')
+            src[i] = '\t'
+        else if (char == '\t')
+            src[i] = ' ';
+    }
+
+    const edits = try mem.alloc(TextEdit, 1);
+    edits[0] = TextEdit{ .range = ret_range, .newText = src };
     return Result(?[]TextEdit){ .ok = edits };
 }
 
@@ -247,10 +262,7 @@ fn onExecuteCommand(ctx: Server.Ctx(ExecuteCommandParams)) !Result(?jsonic.AnyVa
                 const is_to_upper = std.mem.eql(u8, ctx.value.command, "dummylangserver.caseup");
                 const is_to_lower = std.mem.eql(u8, ctx.value.command, "dummylangserver.caselo");
                 if (is_to_upper or is_to_lower) {
-                    var src = if (utils.src_files_cache.?.get(src_file_uri)) |in_cache|
-                        try std.mem.dupe(ctx.mem, u8, in_cache.value)
-                    else
-                        try std.fs.cwd().readFileAlloc(ctx.mem, zag.mem.trimPrefix(u8, src_file_uri, "file://"), std.math.maxInt(usize));
+                    var src = try cachedOrFreshSrc(ctx.mem, src_file_uri);
                     if (try Range.initFrom(src)) |full_src_range| {
                         for (src) |char, i| {
                             if (is_to_lower and char >= 'A' and char <= 'Z')
