@@ -52,8 +52,8 @@ pub fn setupCapabilitiesAndHandlers(srv: *Server) void {
 
     // SIGNATURE TOOLTIP
     srv.cfg.capabilities.signatureHelpProvider = .{
-        .triggerCharacters = ([_]String{ "[", "{" })[0..],
-        .retriggerCharacters = ([_]String{ ",", ":" })[0..],
+        .triggerCharacters = &[_]String{ "[", "{" },
+        .retriggerCharacters = &[_]String{ ",", ":" },
     };
     srv.api.onRequest(.textDocument_signatureHelp, onSignatureHelp);
 
@@ -65,11 +65,11 @@ pub fn setupCapabilitiesAndHandlers(srv: *Server) void {
     srv.cfg.capabilities.codeActionProvider = .{ .enabled = true };
     srv.api.onRequest(.textDocument_codeAction, onCodeActions);
     srv.cfg.capabilities.executeCommandProvider = .{
-        .commands = ([_]String{
+        .commands = &[_]String{
             "dummylangserver.caseup",
             "dummylangserver.caselo",
             "dummylangserver.infomsg",
-        })[0..],
+        },
     };
     srv.api.onRequest(.workspace_executeCommand, onExecuteCommand);
     srv.cfg.capabilities.codeLensProvider = .{ .resolveProvider = false };
@@ -341,18 +341,19 @@ fn onInitialized(ctx: Server.Ctx(InitializedParams)) !void {
         .@"type" = .Warning,
         .message = try std.fmt.allocPrint(ctx.mem, "So it's you... {}", .{ctx.inst.initialized.?.clientInfo.?.name}),
     });
+
     try ctx.inst.api.request(.client_registerCapability, {}, RegistrationParams{
-        .registrations = ([1]Registration{Registration{
+        .registrations = &[1]Registration{Registration{
             .method = "workspace/didChangeWatchedFiles",
             .id = try std.fmt.allocPrint(ctx.mem, "unique_enough_{}", .{std.time.milliTimestamp()}),
             .registerOptions = try jsonic.AnyValue.fromStd(ctx.mem, &(try jsonrpc_options.json.marshal(ctx.mem, DidChangeWatchedFilesRegistrationOptions{
-                .watchers = ([1]FileSystemWatcher{
+                .watchers = &[1]FileSystemWatcher{
                     FileSystemWatcher{
                         .globPattern = "**/*.dummy",
                     },
-                })[0..],
+                },
             }))),
-        }})[0..],
+        }},
     }, struct {
         pub fn then(state: void, resp: Server.Ctx(Result(void))) error{}!void {
             std.debug.warn("Result of attempt to register for `workspace/didChangeWatchedFiles` notifications: {}\n", .{resp.value});
