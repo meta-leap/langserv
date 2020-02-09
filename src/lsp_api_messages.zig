@@ -76,9 +76,17 @@ pub const api_server_side = Spec{
         textDocument_rangeFormatting: fn (DocumentRangeFormattingParams) ?[]TextEdit,
         textDocument_onTypeFormatting: fn (DocumentOnTypeFormattingParams) ?[]TextEdit,
         textDocument_rename: fn (RenameParams) ?WorkspaceEdit,
-        textDocument_prepareRename: fn (TextDocumentPositionParams) ?Range,
+        textDocument_prepareRename: fn (TextDocumentPositionParams) ?RenamePrep,
         textDocument_foldingRange: fn (FoldingRangeParams) ?[]FoldingRange,
         textDocument_selectionRange: fn (SelectionRangeParams) ?[]SelectionRange,
+    },
+};
+
+pub const RenamePrep = union(enum) {
+    range_only: Range,
+    augmented: struct {
+        range: Range,
+        placeholder: String,
     },
 };
 

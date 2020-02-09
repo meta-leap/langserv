@@ -47,8 +47,9 @@ pub fn setupCapabilitiesAndHandlers(srv: *Server) void {
     srv.api.onRequest(.textDocument_documentSymbol, onSymbols);
 
     // RENAME
-    srv.precis.capabilities.renameProvider = .{ .enabled = true };
+    srv.precis.capabilities.renameProvider = .{ .options = .{ .prepareProvider = true } };
     srv.api.onRequest(.textDocument_rename, onRename);
+    srv.api.onRequest(.textDocument_prepareRename, onRenamePrep);
 }
 
 fn onInitialized(ctx: Server.Ctx(InitializedParams)) !void {
@@ -142,7 +143,11 @@ fn doFormat(src_file_uri: String, src_range: ?Range, mem: *std.mem.Allocator) !?
         else if (char == '\t')
             src[i] = ' ';
     }
-    return TextEdit{ .range = ret_range, .newText = std.mem.trimRight(u8, src, " \t\r\n") };
+    return TextEdit{ .range = ret_range, .newText = trimRight(src) };
+}
+
+fn trimRight(str: []const u8) []const u8 {
+    return std.mem.trimRight(u8, str, "\t\r\n");
 }
 
 fn onSymbols(ctx: Server.Ctx(DocumentSymbolParams)) !Result(?DocumentSymbols) {
@@ -161,34 +166,69 @@ fn onSymbols(ctx: Server.Ctx(DocumentSymbolParams)) !Result(?DocumentSymbols) {
     return Result(?DocumentSymbols){ .ok = .{ .hierarchy = symbols } };
 }
 
+const RenameHelper = struct {
+    src: []const u8,
+    word_start: usize,
+    word_end: usize,
+    range: Range,
+
+    fn init(mem: *std.mem.Allocator, src_file_uri: []const u8, position: Position) !?RenameHelper {
+        var ret: RenameHelper = undefined;
+        ret.src = if (utils.src_files_cache.?.get(src_file_uri)) |in_cache|
+            try std.mem.dupe(mem, u8, in_cache.value)
+        else
+            try std.fs.cwd().readFileAlloc(mem, zag.mem.trimPrefix(u8, src_file_uri, "file://"), std.math.maxInt(usize));
+
+        if (try Range.initFrom(ret.src)) |*range| {
+            ret.range = range.*;
+            if (try position.toByteIndexIn(ret.src)) |pos|
+                if ((ret.src[pos] >= 'a' and ret.src[pos] <= 'z') or (ret.src[pos] >= 'A' and ret.src[pos] <= 'Z')) {
+                    ret.word_start = pos;
+                    ret.word_end = pos;
+                    while (ret.word_end < ret.src.len and ((ret.src[ret.word_end] >= 'a' and ret.src[ret.word_end] <= 'z') or (ret.src[ret.word_end] >= 'A' and ret.src[ret.word_end] <= 'Z')))
+                        ret.word_end += 1;
+                    while (ret.word_start >= 0 and ((ret.src[ret.word_start] >= 'a' and ret.src[ret.word_start] <= 'z') or (ret.src[ret.word_start] >= 'A' and ret.src[ret.word_start] <= 'Z')))
+                        ret.word_start -= 1;
+                    ret.word_start += 1;
+
+                    if (ret.word_start < ret.word_end)
+                        return ret;
+                };
+        }
+        return null;
+    }
+};
+
 fn onRename(ctx: Server.Ctx(RenameParams)) !Result(?WorkspaceEdit) {
     const src_file_uri = ctx.value.TextDocumentPositionParams.textDocument.uri;
-    var src = if (utils.src_files_cache.?.get(src_file_uri)) |in_cache|
-        try std.mem.dupe(ctx.mem, u8, in_cache.value)
-    else
-        try std.fs.cwd().readFileAlloc(ctx.mem, zag.mem.trimPrefix(u8, src_file_uri, "file://"), std.math.maxInt(usize));
+    if (try RenameHelper.init(ctx.mem, src_file_uri, ctx.value.TextDocumentPositionParams.position)) |ren| {
+        const new_src = try zag.mem.replace(u8, ren.src, ren.src[ren.word_start..ren.word_end], ctx.value.newName, ctx.mem);
 
-    if (try Range.initFrom(src)) |range|
-        if (try ctx.value.TextDocumentPositionParams.position.toByteIndexIn(src)) |pos|
-            if ((src[pos] >= 'a' and src[pos] <= 'z') or (src[pos] >= 'A' and src[pos] <= 'Z')) {
-                var pos_start = pos;
-                var pos_end = pos;
-                while (pos_end < src.len and ((src[pos_end] >= 'a' and src[pos_end] <= 'z') or (src[pos_end] >= 'A' and src[pos_end] <= 'Z')))
-                    pos_end += 1;
-                while (pos_start >= 0 and ((src[pos_start] >= 'a' and src[pos_start] <= 'z') or (src[pos_start] >= 'A' and src[pos_start] <= 'Z')))
-                    pos_start -= 1;
-                pos_start += 1;
+        var edits = try ctx.mem.alloc(TextEdit, 1);
+        edits[0] = .{ .newText = trimRight(new_src), .range = ren.range };
+        var ret = WorkspaceEdit{ .changes = std.StringHashMap([]TextEdit).init(ctx.mem) };
+        _ = try ret.changes.?.put(src_file_uri, edits);
 
-                const word = src[pos_start..pos_end];
-                const new_src = try zag.mem.replace(u8, src, word, ctx.value.newName, ctx.mem);
+        return Result(?WorkspaceEdit){ .ok = ret };
+    }
 
-                var edits = try ctx.mem.alloc(TextEdit, 1);
-                edits[0] = .{ .newText = new_src, .range = range };
-                var ret = WorkspaceEdit{ .changes = std.StringHashMap([]TextEdit).init(ctx.mem) };
-                _ = try ret.changes.?.put(src_file_uri, edits);
+    return Result(?WorkspaceEdit){ .ok = null };
+}
 
-                return Result(?WorkspaceEdit){ .ok = ret };
+fn onRenamePrep(ctx: Server.Ctx(TextDocumentPositionParams)) !Result(?RenamePrep) {
+    const src_file_uri = ctx.value.textDocument.uri;
+    if (try RenameHelper.init(ctx.mem, src_file_uri, ctx.value.position)) |ren|
+        if (try Position.fromByteIndexIn(ren.src, ren.word_start)) |pos_start|
+            if (try Position.fromByteIndexIn(ren.src, ren.word_end)) |pos_end| {
+                return Result(?RenamePrep){
+                    .ok = .{
+                        .augmented = .{
+                            .placeholder = "Hint text goes here",
+                            .range = .{ .start = pos_start, .end = pos_end },
+                        },
+                    },
+                };
             };
 
-    return fail(?WorkspaceEdit);
+    return Result(?RenamePrep){ .ok = null };
 }
