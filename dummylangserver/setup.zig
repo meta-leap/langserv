@@ -15,11 +15,13 @@ pub fn setupCapabilitiesAndHandlers(srv: *Server) void {
         .options = .{
             .openClose = true,
             .change = TextDocumentSyncKind.Full,
+            .save = .{ .includeText = true },
         },
     };
     srv.api.onNotify(.textDocument_didClose, onFileClosed);
     srv.api.onNotify(.textDocument_didOpen, onFileBufOpened);
     srv.api.onNotify(.textDocument_didChange, onFileBufEdited);
+    srv.api.onNotify(.textDocument_didSave, onFileBufSaved);
     srv.api.onNotify(.workspace_didChangeWatchedFiles, onFileEvents);
 
     // HOVER TOOLTIP
@@ -345,7 +347,7 @@ fn onInitialized(ctx: Server.Ctx(InitializedParams)) !void {
     try ctx.inst.api.request(.client_registerCapability, {}, RegistrationParams{
         .registrations = &[1]Registration{Registration{
             .method = "workspace/didChangeWatchedFiles",
-            .id = try std.fmt.allocPrint(ctx.mem, "unique_enough_{}", .{std.time.milliTimestamp()}),
+            .id = try zag.util.uniqueishId(ctx.mem, "dummylangserver_filewatch"),
             .registerOptions = try jsonic.AnyValue.fromStd(ctx.mem, &(try jsonrpc_options.json.marshal(ctx.mem, DidChangeWatchedFilesRegistrationOptions{
                 .watchers = &[1]FileSystemWatcher{
                     FileSystemWatcher{

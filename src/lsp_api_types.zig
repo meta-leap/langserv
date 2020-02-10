@@ -853,12 +853,14 @@ pub const DidChangeWatchedFilesParams = struct {
 
 pub const FileEvent = struct {
     uri: DocumentUri,
-    @"type": enum {
+    @"type": Type,
+
+    pub const Type = enum {
         __ = 0,
         Created = 1,
         Changed = 2,
         Deleted = 3,
-    },
+    };
 };
 
 pub const DidChangeWatchedFilesRegistrationOptions = struct {
@@ -1211,15 +1213,15 @@ pub const ProgressToken = jsonic.AnyValue;
 
 pub const ProgressParams = struct {
     token: ProgressToken,
-    value: jsonic.AnyValue,
+    value: WorkDoneProgress,
 };
 
 pub const WorkDoneProgress = struct {
     kind: String,
     title: String,
-    cancellable: ?bool = null,
+    cancellable: ?bool = false,
     message: ?String = null,
-    percentage: ?isize = null,
+    percentage: ?usize = null,
 
     pub const Kind = struct {
         pub const Begin = "begin";

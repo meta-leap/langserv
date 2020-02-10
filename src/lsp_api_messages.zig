@@ -23,6 +23,7 @@ pub const api_server_side = Spec{
         textDocument_willSave: WillSaveTextDocumentParams,
         textDocument_didSave: DidSaveTextDocumentParams,
         textDocument_didClose: DidCloseTextDocumentParams,
+        window_workDoneProgress_cancel: WorkDoneProgressCancelParams,
     },
 
     // outgoing events / announcements / UX intentions to the LSP client counterparty
