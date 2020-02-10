@@ -9,31 +9,32 @@ pub const Session = struct {
 
     pub fn init(me: *Session, alloc_for_arenas: *std.mem.Allocator, tmp_dir_parent_dir_path: []const u8) !void {
         me.alloc_for_arenas = alloc_for_arenas;
+        var mem = std.heap.ArenaAllocator.init(alloc_for_arenas);
+        defer mem.deinit();
 
         tmp_dir: {
             if (std.fs.cwd().openDirTraverse(tmp_dir_parent_dir_path)) |dir| {
                 me.tmp_dir_parent_dir = dir;
-                const tmp_dir_path = try std.fs.path.join(alloc_for_arenas, &[_][]const u8{
+                const tmp_dir_path = try std.fs.path.join(&mem.allocator, &[_][]const u8{
                     tmp_dir_parent_dir_path,
                     "ziglsp",
-                    try zag.util.uniqueishId(alloc_for_arenas, "sess"),
+                    try zag.util.uniqueishId(&mem.allocator, "sess"),
                 });
-                defer alloc_for_arenas.free(tmp_dir_path);
-                std.fs.makePath(alloc_for_arenas, tmp_dir_path) catch break :tmp_dir;
+                std.fs.makePath(&mem.allocator, tmp_dir_path) catch break :tmp_dir;
                 std.os.chdir(tmp_dir_path) catch break :tmp_dir;
                 me.tmp_dir = std.fs.cwd().openDirTraverse(tmp_dir_path) catch break :tmp_dir;
             } else |_| {}
         }
 
         if (me.tmp_dir != null) zig_std_lib_dir_path: {
-            var cmd_ziginitlib = try std.ChildProcess.init(&[_][]const u8{ "zig", "init-lib" }, alloc_for_arenas);
-            defer cmd_ziginitlib.deinit();
-            if ((cmd_ziginitlib.spawnAndWait() catch break :zig_std_lib_dir_path) != .Exited)
+            const cmd_ziginitlib = std.ChildProcess.exec(&mem.allocator, &[_][]const u8{ "zig", "init-lib" }, null, null, std.math.maxInt(usize)) catch
+                break :zig_std_lib_dir_path;
+            if (cmd_ziginitlib.term != .Exited)
                 break :zig_std_lib_dir_path;
 
-            var cmd_zigbuildtest = try std.ChildProcess.init(&[_][]const u8{ "zig", "build", "test", "--cache-dir", "__" }, alloc_for_arenas);
-            defer cmd_zigbuildtest.deinit();
-            if ((cmd_zigbuildtest.spawnAndWait() catch break :zig_std_lib_dir_path) != .Exited)
+            const cmd_zigbuildtest = std.ChildProcess.exec(&mem.allocator, &[_][]const u8{ "zig", "build", "test", "--cache-dir", "__" }, null, null, std.math.maxInt(usize)) catch
+                break :zig_std_lib_dir_path;
+            if (cmd_zigbuildtest.term != .Exited)
                 break :zig_std_lib_dir_path;
 
             var cache_h_dir = me.tmp_dir.?.openDirList("__" ++ std.fs.path.sep_str ++ "h") catch break :zig_std_lib_dir_path;
@@ -43,8 +44,7 @@ pub const Session = struct {
                 if (entry.kind == .File and std.mem.endsWith(u8, entry.name, ".txt")) {
                     var txt_file = cache_h_dir.openFile(entry.name, .{}) catch break :zig_std_lib_dir_path;
                     defer txt_file.close();
-                    const txt_file_bytes = try alloc_for_arenas.alloc(u8, (try txt_file.stat()).size);
-                    defer alloc_for_arenas.free(txt_file_bytes);
+                    const txt_file_bytes = try mem.allocator.alloc(u8, (try txt_file.stat()).size);
                     _ = try txt_file.inStream().stream.readFull(txt_file_bytes);
                     var pos: usize = 0;
                     while (pos < txt_file_bytes.len) {
@@ -55,9 +55,11 @@ pub const Session = struct {
                             while (i > 0) : (i -= 1) if (std.fs.path.isAbsolute(txt_file_bytes[i..pos])) {
                                 if (std.fs.openFileAbsolute(txt_file_bytes[i..pos], .{})) |file| {
                                     file.close();
-                                    me.zig_std_lib_dir_path = std.fs.path.dirname(txt_file_bytes[i..pos]);
-                                    std.debug.warn("\n\n\n{}\n\n\n", .{me.zig_std_lib_dir_path.?});
-                                    break :search;
+                                    if (std.fs.path.dirname(txt_file_bytes[i..pos])) |dir_path| {
+                                        me.zig_std_lib_dir_path = try std.mem.dupe(&mem.allocator, u8, dir_path);
+                                        std.debug.warn("\n\n{}\n", .{me.zig_std_lib_dir_path.?});
+                                        break :search;
+                                    }
                                 } else |_| {}
                             };
                         } else
