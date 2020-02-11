@@ -9,7 +9,7 @@ test "" {
 
     const start_time = std.time.milliTimestamp();
     var sess = @import("./ziglangserver/session/session.zig").Session{};
-    try sess.init(std.heap.page_allocator, "/tmp");
+    try sess.init(std.heap.page_allocator, "/home/_/tmp");
     defer sess.deinit();
     std.debug.warn("\n\n\n{}\n\n\n", .{std.time.milliTimestamp() - start_time});
 }
