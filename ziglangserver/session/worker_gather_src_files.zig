@@ -22,9 +22,8 @@ pub const WorkerThatGathersSrcFiles = struct {
         me.jobs_queue = std.ArrayList(JobEntry).init(me.session.mem_alloc);
         defer me.jobs_queue.deinit();
 
-        while (true) {
-            if (me.session.deinited)
-                break;
+        repeat: while (true) {
+            if (me.session.deinited) break :repeat;
 
             var time_last_enqueued = me.time_last_enqueued.get();
             if (time_last_enqueued == 0 or (std.time.milliTimestamp() - time_last_enqueued) < 234) {
@@ -42,7 +41,9 @@ pub const WorkerThatGathersSrcFiles = struct {
             }
             lock.release();
 
-            if (jobs_queue.len > 0) for (jobs_queue) |job|
+            for (jobs_queue) |job| {
+                if (me.session.deinited) break :repeat;
+
                 switch (job) {
                     .dir_added => |dir_path| {
                         var src_file_paths = std.ArrayList([]const u8).init(me.session.mem_alloc);
@@ -55,7 +56,8 @@ pub const WorkerThatGathersSrcFiles = struct {
                     .file_created => {},
                     .file_modified => {},
                     .file_deleted => {},
-                };
+                }
+            }
         }
         return 0;
     }
