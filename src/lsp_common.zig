@@ -30,7 +30,7 @@ pub const jsonrpc_options = jsonic.Rpc.Options{
 
 fn rewriteUnionFieldNameToJsonRpcMethodName(mem: *std.mem.Allocator, comptime union_type: type, comptime union_field_idx: comptime_int, comptime union_field_name: Str) !Str {
     var name: []u8 = try std.mem.dupe(mem, u8, union_field_name);
-    zag.mem.replaceScalar(u8, name, '_', '/');
+    zag.mem.replaceScalar(name, '_', '/');
     if (name[0] == '/')
         name[0] = '$';
     return name;
@@ -38,7 +38,7 @@ fn rewriteUnionFieldNameToJsonRpcMethodName(mem: *std.mem.Allocator, comptime un
 
 fn rewriteJsonRpcMethodNameToUnionFieldName(mem: *std.mem.Allocator, incoming_kind: jsonic.Rpc.MsgKind, jsonrpc_method_name: Str) !Str {
     var name = try std.mem.dupe(mem, u8, jsonrpc_method_name);
-    zag.mem.replaceScalars(u8, name, "$/", '_');
+    zag.mem.replaceScalars(name, "$/", '_');
     return name;
 }
 

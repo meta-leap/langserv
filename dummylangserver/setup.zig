@@ -182,7 +182,7 @@ fn onSymbols(ctx: Server.Ctx(DocumentSymbolParams)) !Result(?DocumentSymbols) {
 fn onRename(ctx: Server.Ctx(RenameParams)) !Result(?WorkspaceEdit) {
     const src_file_uri = ctx.value.TextDocumentPositionParams.textDocument.uri;
     if (try utils.PseudoNameHelper.init(ctx.mem, src_file_uri, ctx.value.TextDocumentPositionParams.position)) |name_helper| {
-        const new_src = try zag.mem.replace(u8, ctx.mem, name_helper.src, name_helper.src[name_helper.word_start..name_helper.word_end], ctx.value.newName);
+        const new_src = try zag.mem.replace(ctx.mem, name_helper.src, name_helper.src[name_helper.word_start..name_helper.word_end], ctx.value.newName);
 
         var edits = try ctx.mem.alloc(TextEdit, 1);
         edits[0] = .{ .newText = utils.trimRight(new_src), .range = name_helper.full_src_range };

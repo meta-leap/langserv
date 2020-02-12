@@ -1,6 +1,5 @@
 const std = @import("std");
-usingnamespace @import("./ziglangserver/session/session.zig");
-usingnamespace @import("./ziglangserver/session/worker_gather_src_files.zig");
+usingnamespace @import("../zigsess/zigsess.zig");
 
 test "" {
     const lsp = @import("./langserv.zig");
@@ -16,7 +15,7 @@ test "" {
     try sess.worker_gather_src_files.enqueueJobs(&[_]WorkerThatGathersSrcFiles.JobEntry{
         .{ .dir_added = "/home/_/c/z" },
     });
-    std.time.sleep(5 * std.time.second);
+    std.time.sleep(1 * std.time.second);
     std.debug.warn("\n\n\n{}ms\n\n\n", .{std.time.milliTimestamp() - start_time});
 }
 
