@@ -1,7 +1,11 @@
 const std = @import("std");
+usingnamespace @import("../zag/zag.zig");
 usingnamespace @import("../zigsess/zigsess.zig");
 
 test "" {
+    var mem_alloc = zag.debug.Allocator.init(std.heap.page_allocator);
+    defer mem_alloc.report();
+
     const lsp = @import("./langserv.zig");
 
     _ = lsp.api_server_side;
@@ -10,7 +14,7 @@ test "" {
 
     const start_time = std.time.milliTimestamp();
     var sess = Session{};
-    try sess.init(std.heap.page_allocator, "/home/_/tmp");
+    try sess.init(&mem_alloc.allocator, "/home/_/tmp");
     defer sess.deinit();
     try sess.worker_gather_src_files.enqueueJobs(&[_]WorkerThatGathersSrcFiles.JobEntry{
         .{ .dir_added = "/home/_/c/z" },

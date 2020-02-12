@@ -29,6 +29,7 @@ pub const Server = struct {
 
     pub fn forever(me: *Server, in_stream: var) !void {
         me.api.owner = me;
+
         me.initialized = null;
 
         if (me.api.__.handlers_requests[@enumToInt(api_server_side.RequestIn.initialize)]) |_|
