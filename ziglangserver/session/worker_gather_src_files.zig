@@ -6,13 +6,12 @@ pub const WorkerThatGathersSrcFiles = struct {
     session: *Session = undefined,
     thread: *std.Thread = undefined,
 
+    mutex: std.Mutex = std.Mutex.init(),
     time_last_enqueued: std.atomic.Int(u64) = std.atomic.Int(u64).init(0),
     jobs_queue: std.ArrayList(JobEntry) = undefined,
-    mutex: std.Mutex = std.Mutex.init(),
 
     pub const JobEntry = union(enum) {
         dir_added: Str,
-        dir_removed: Str,
         file_created: Str,
         file_modified: Str,
         file_deleted: Str,
@@ -56,7 +55,6 @@ pub const WorkerThatGathersSrcFiles = struct {
                     try zag.io.gatherAllFiles(&src_file_paths, dir_path, "", ".zig");
                     std.debug.warn("\n{}\n", .{src_file_paths.len});
                 },
-                .dir_removed => {},
                 .file_created => {},
                 .file_modified => {},
                 .file_deleted => {},
