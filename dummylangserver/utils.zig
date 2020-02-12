@@ -1,5 +1,5 @@
 const std = @import("std");
-const zag = @import("../../zag/zag.zig");
+usingnamespace @import("../../zag/zag.zig");
 usingnamespace @import("../langserv.zig");
 usingnamespace @import("../../jsonic/jsonic.zig").Rpc;
 usingnamespace @import("./src_files_tracker.zig");
@@ -8,11 +8,11 @@ pub fn fail(comptime T: type) Result(T) {
     return Result(T){ .err = .{ .code = 12121, .message = "somewhere there's a bug in here." } };
 }
 
-pub fn trimRight(str: []const u8) []const u8 {
+pub fn trimRight(str: Str) Str {
     return std.mem.trimRight(u8, str, " \t\r\n");
 }
 
-pub fn gatherPseudoNameLocations(mem: *std.mem.Allocator, src_file_uri: String, pos: Position) !?[]Range {
+pub fn gatherPseudoNameLocations(mem: *std.mem.Allocator, src_file_uri: Str, pos: Position) !?[]Range {
     if (try PseudoNameHelper.init(mem, src_file_uri, pos)) |name_helper| {
         const word = name_helper.src[name_helper.word_start..name_helper.word_end];
         var locs = try std.ArrayList(Range).initCapacity(mem, 8);
@@ -30,12 +30,12 @@ pub fn gatherPseudoNameLocations(mem: *std.mem.Allocator, src_file_uri: String, 
 }
 
 pub const PseudoNameHelper = struct {
-    src: []const u8,
+    src: Str,
     word_start: usize,
     word_end: usize,
     full_src_range: Range,
 
-    pub fn init(mem: *std.mem.Allocator, src_file_uri: []const u8, position: Position) !?PseudoNameHelper {
+    pub fn init(mem: *std.mem.Allocator, src_file_uri: Str, position: Position) !?PseudoNameHelper {
         var ret: PseudoNameHelper = undefined;
         ret.src = try cachedOrFreshSrc(mem, src_file_uri);
 

@@ -17,7 +17,7 @@ test "" {
         .{ .dir_added = "/home/_/c/z" },
     });
     std.time.sleep(5 * std.time.second);
-    std.debug.warn("\n\n\n{}\n\n\n", .{std.time.milliTimestamp() - start_time});
+    std.debug.warn("\n\n\n{}ms\n\n\n", .{std.time.milliTimestamp() - start_time});
 }
 
 fn onOutput(_: []const u8) anyerror!void {

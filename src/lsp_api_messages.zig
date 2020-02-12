@@ -1,4 +1,5 @@
 const std = @import("std");
+usingnamespace @import("../../zag/zag.zig");
 const jsonic = @import("../../jsonic/jsonic.zig");
 usingnamespace jsonic.Rpc;
 usingnamespace @import("./lsp_api_types.zig");
@@ -85,7 +86,7 @@ pub const RenamePrep = union(enum) {
     range_only: Range,
     augmented: struct {
         range: Range,
-        placeholder: String,
+        placeholder: Str,
     },
 };
 

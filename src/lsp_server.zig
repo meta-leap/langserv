@@ -1,5 +1,5 @@
 const std = @import("std");
-const zag = @import("../../zag/zag.zig");
+usingnamespace @import("../../zag/zag.zig");
 const jsonic = @import("../../jsonic/jsonic.zig");
 usingnamespace @import("./lsp_api_messages.zig");
 usingnamespace @import("./lsp_api_types.zig");
@@ -15,7 +15,7 @@ pub const Server = struct {
         .serverInfo = .{ .name = "unnamed" },
     },
     initialized: ?InitializeParams = null,
-    onOutput: fn ([]const u8) anyerror!void,
+    onOutput: fn (Str) anyerror!void,
     api: LspApi = LspApi{
         .owner = undefined,
         .mem_alloc_for_arenas = std.heap.page_allocator,
@@ -69,7 +69,7 @@ pub const Server = struct {
         }
     }
 
-    fn onOutputPrependHeader(mem: *std.mem.Allocator, me: *Server, raw_json_bytes_to_output: []const u8) void {
+    fn onOutputPrependHeader(mem: *std.mem.Allocator, me: *Server, raw_json_bytes_to_output: Str) void {
         // std.debug.warn("\n\n>>>>>>>>>>>>>{}<<<<<<<<<<\n\n", .{raw_json_bytes_to_output});
         callOnOutputHandlerWithHeaderPrependedOrCrash(mem, me.onOutput, raw_json_bytes_to_output);
     }

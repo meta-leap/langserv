@@ -1,5 +1,5 @@
 const std = @import("std");
-const zag = @import("../../zag/zag.zig");
+usingnamespace @import("../../zag/zag.zig");
 const jsonic = @import("../../jsonic/jsonic.zig");
 usingnamespace @import("../langserv.zig");
 usingnamespace jsonic.Rpc;
@@ -30,8 +30,8 @@ pub fn setupCapabilitiesAndHandlers(srv: *Server) void {
 
     // AUTO-COMPLETE
     srv.cfg.capabilities.completionProvider = .{
-        .triggerCharacters = &[_]String{"."},
-        .allCommitCharacters = &[_]String{"\t"},
+        .triggerCharacters = &[_]Str{"."},
+        .allCommitCharacters = &[_]Str{"\t"},
         .resolveProvider = true,
     };
     srv.api.onRequest(.textDocument_completion, onCompletion);
@@ -54,8 +54,8 @@ pub fn setupCapabilitiesAndHandlers(srv: *Server) void {
 
     // SIGNATURE TOOLTIP
     srv.cfg.capabilities.signatureHelpProvider = .{
-        .triggerCharacters = &[_]String{ "[", "{" },
-        .retriggerCharacters = &[_]String{ ",", ":" },
+        .triggerCharacters = &[_]Str{ "[", "{" },
+        .retriggerCharacters = &[_]Str{ ",", ":" },
     };
     srv.api.onRequest(.textDocument_signatureHelp, onSignatureHelp);
 
@@ -67,7 +67,7 @@ pub fn setupCapabilitiesAndHandlers(srv: *Server) void {
     srv.cfg.capabilities.codeActionProvider = .{ .enabled = true };
     srv.api.onRequest(.textDocument_codeAction, onCodeActions);
     srv.cfg.capabilities.executeCommandProvider = .{
-        .commands = &[_]String{
+        .commands = &[_]Str{
             "dummylangserver.caseup",
             "dummylangserver.caselo",
             "dummylangserver.infomsg",
@@ -141,7 +141,7 @@ fn onFormatOnType(ctx: Server.Ctx(DocumentOnTypeFormattingParams)) !Result(?[]Te
     return onFormat(ctx.mem, ctx.value.TextDocumentPositionParams.textDocument.uri, null);
 }
 
-fn onFormat(mem: *std.mem.Allocator, src_file_uri: String, src_range: ?Range) !Result(?[]TextEdit) {
+fn onFormat(mem: *std.mem.Allocator, src_file_uri: Str, src_range: ?Range) !Result(?[]TextEdit) {
     var src = try cachedOrFreshSrc(mem, src_file_uri);
 
     var ret_range: Range = undefined;
@@ -337,7 +337,7 @@ fn Locs(comptime TArg: type, comptime TRet: type) type {
 }
 
 fn onInitialized(ctx: Server.Ctx(InitializedParams)) !void {
-    src_files_cache = std.StringHashMap(String).init(&ctx.inst.mem_forever.?.allocator);
+    src_files_cache = std.StringHashMap(Str).init(&ctx.inst.mem_forever.?.allocator);
     std.debug.warn("\nonInitialized:\t{}\n", .{ctx.value});
     try ctx.inst.api.notify(.window_showMessage, ShowMessageParams{
         .@"type" = .Warning,

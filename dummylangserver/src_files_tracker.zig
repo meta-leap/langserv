@@ -1,19 +1,19 @@
 const std = @import("std");
-const zag = @import("../../zag/zag.zig");
+usingnamespace @import("../../zag/zag.zig");
 const jsonic = @import("../../jsonic/jsonic.zig");
 usingnamespace jsonic.Rpc;
 usingnamespace @import("../langserv.zig");
 
-pub var src_files_cache: std.StringHashMap(String) = undefined;
+pub var src_files_cache: std.StringHashMap(Str) = undefined;
 
-pub fn cachedOrFreshSrc(mem: *std.mem.Allocator, src_file_uri: String) ![]u8 {
+pub fn cachedOrFreshSrc(mem: *std.mem.Allocator, src_file_uri: Str) ![]u8 {
     return if (src_files_cache.get(src_file_uri)) |in_cache|
         try std.mem.dupe(mem, u8, in_cache.value)
     else
         try std.fs.cwd().readFileAlloc(mem, zag.mem.trimPrefix(u8, src_file_uri, "file://"), std.math.maxInt(usize));
 }
 
-fn updateSrcInCache(mem: *std.mem.Allocator, src_file_uri: String, src_full: ?String) !void {
+fn updateSrcInCache(mem: *std.mem.Allocator, src_file_uri: Str, src_full: ?Str) !void {
     const old = if (src_full) |src|
         try src_files_cache.put(try std.mem.dupe(mem, u8, src_file_uri), try std.mem.dupe(mem, u8, src))
     else
@@ -78,7 +78,7 @@ pub fn onFileBufSaved(ctx: Server.Ctx(DidSaveTextDocumentParams)) !void {
     });
 }
 
-fn pushDiagnostics(mem: *std.mem.Allocator, srv: *Server, src_file_uri: String, src_full: ?String) !void {
+fn pushDiagnostics(mem: *std.mem.Allocator, srv: *Server, src_file_uri: Str, src_full: ?Str) !void {
     var diags = try std.ArrayList(Diagnostic).initCapacity(mem, if (src_full == null) 0 else 8);
     if (src_full) |src| {
         var i: usize = 0;

@@ -1,11 +1,11 @@
 const std = @import("std");
-const zag = @import("../../zag/zag.zig");
+usingnamespace @import("../../zag/zag.zig");
 const jsonic = @import("../../jsonic/jsonic.zig");
 
 pub fn callOnOutputHandlerWithHeaderPrependedOrCrash(
     mem: *std.mem.Allocator,
-    onOutput: fn ([]const u8) anyerror!void,
-    raw_json_bytes_to_output: []const u8,
+    onOutput: fn (Str) anyerror!void,
+    raw_json_bytes_to_output: Str,
 ) void {
     const full_out_bytes = std.fmt.allocPrint(
         mem,
@@ -28,7 +28,7 @@ pub const jsonrpc_options = jsonic.Rpc.Options{
     },
 };
 
-fn rewriteUnionFieldNameToJsonRpcMethodName(mem: *std.mem.Allocator, comptime union_type: type, comptime union_field_idx: comptime_int, comptime union_field_name: []const u8) ![]const u8 {
+fn rewriteUnionFieldNameToJsonRpcMethodName(mem: *std.mem.Allocator, comptime union_type: type, comptime union_field_idx: comptime_int, comptime union_field_name: Str) !Str {
     var name: []u8 = try std.mem.dupe(mem, u8, union_field_name);
     zag.mem.replaceScalar(u8, name, '_', '/');
     if (name[0] == '/')
@@ -36,24 +36,24 @@ fn rewriteUnionFieldNameToJsonRpcMethodName(mem: *std.mem.Allocator, comptime un
     return name;
 }
 
-fn rewriteJsonRpcMethodNameToUnionFieldName(mem: *std.mem.Allocator, incoming_kind: jsonic.Rpc.MsgKind, jsonrpc_method_name: []const u8) ![]const u8 {
+fn rewriteJsonRpcMethodNameToUnionFieldName(mem: *std.mem.Allocator, incoming_kind: jsonic.Rpc.MsgKind, jsonrpc_method_name: Str) !Str {
     var name = try std.mem.dupe(mem, u8, jsonrpc_method_name);
     zag.mem.replaceScalars(u8, name, "$/", '_');
     return name;
 }
 
-// fn rewriteStructFieldNameToJsonObjectKey(comptime TStruct: type, comptime field_name: []const u8, comptime when: jsonic.Jsonic.During) []const u8 {
+// fn rewriteStructFieldNameToJsonObjectKey(comptime TStruct: type, comptime field_name: Str, comptime when: jsonic.Jsonic.During) Str {
 //     return if (!std.mem.endsWith(u8, field_name, "__"))
 //         field_name
 //     else
 //         field_name[0 .. field_name.len - 2];
 // }
 
-fn isStructFieldEmbedded(comptime TStruct: type, comptime field_name: []const u8, comptime TField: type, comptime when: jsonic.Jsonic.During) bool {
+fn isStructFieldEmbedded(comptime TStruct: type, comptime field_name: Str, comptime TField: type, comptime when: jsonic.Jsonic.During) bool {
     return std.mem.eql(u8, field_name, @typeName(TField));
 }
 
-pub var name_for_own_req_ids: []const u8 = "";
+pub var name_for_own_req_ids: Str = "";
 
 pub fn nextReqId(mem: *std.mem.Allocator) !std.json.Value {
     const global_counter = struct {

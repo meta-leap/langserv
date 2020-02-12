@@ -1,11 +1,10 @@
 const std = @import("std");
+usingnamespace @import("../../zag/zag.zig");
 const jsonic = @import("../../jsonic/jsonic.zig");
 
 // TODO: catch up on spec changes since last check of: 06 Feb 2020
 // https://microsoft.github.io/language-server-protocol/specifications/specification-current/
 // https://github.com/Microsoft/language-server-protocol/blob/gh-pages/_specifications/specification-3-15.md
-
-pub const String = []const u8;
 
 pub const ErrorCodes = enum(isize) {
     RequestCancelled = -32800,
@@ -16,13 +15,13 @@ pub const CancelParams = struct {
     id: jsonic.AnyValue,
 };
 
-pub const DocumentUri = String;
+pub const DocumentUri = Str;
 
 pub const Position = struct {
     line: isize,
     character: isize,
 
-    pub fn fromByteIndexIn(string: String, index: usize) !?Position {
+    pub fn fromByteIndexIn(string: Str, index: usize) !?Position {
         if (index < string.len) {
             var cur = Position{ .line = 0, .character = 0 };
             var i: usize = 0;
@@ -42,7 +41,7 @@ pub const Position = struct {
         return null;
     }
 
-    pub fn toByteIndexIn(me: *const Position, string: String) !?usize {
+    pub fn toByteIndexIn(me: *const Position, string: Str) !?usize {
         var cur = Position{ .line = 0, .character = 0 };
         var i: usize = 0;
         while (i < string.len) {
@@ -65,13 +64,13 @@ pub const Range = struct {
     start: Position,
     end: Position,
 
-    pub fn initFrom(string: String) !?Range {
+    pub fn initFrom(string: Str) !?Range {
         if (try Position.fromByteIndexIn(string, string.len - 1)) |last_pos|
             return Range{ .start = .{ .line = 0, .character = 0 }, .end = last_pos };
         return null;
     }
 
-    pub fn initFromSlice(string: String, index_start: usize, index_end: usize) !?Range {
+    pub fn initFromSlice(string: Str, index_start: usize, index_end: usize) !?Range {
         if (try Position.fromByteIndexIn(string, index_start)) |start|
             if (try Position.fromByteIndexIn(string, index_end)) |end|
                 return Range{ .start = start, .end = end };
@@ -129,8 +128,8 @@ pub const Diagnostic = struct {
         Hint = 4,
     } = null,
     code: ?jsonic.AnyValue = null,
-    source: ?String = null,
-    message: String,
+    source: ?Str = null,
+    message: Str,
     tags: ?[]DiagnosticTag = null,
     relatedInformation: ?[]DiagnosticRelatedInformation = null,
 };
@@ -143,18 +142,18 @@ pub const DiagnosticTag = enum {
 
 pub const DiagnosticRelatedInformation = struct {
     location: Location,
-    message: String,
+    message: Str,
 };
 
 pub const Command = struct {
-    title: String,
-    command: String,
+    title: Str,
+    command: Str,
     arguments: ?[]jsonic.AnyValue = null,
 };
 
 pub const TextEdit = struct {
     range: Range,
-    newText: String,
+    newText: Str,
 };
 
 pub const TextDocumentEdit = struct {
@@ -183,7 +182,7 @@ pub const WorkspaceEdit = struct {
     pub const DocumentChange = union(enum) {
         edit: TextDocumentEdit,
         file_create: struct {
-            kind: String = Kind.Create,
+            kind: Str = Kind.Create,
             uri: DocumentUri,
             options: ?struct {
                 overwrite: ?bool = null,
@@ -191,7 +190,7 @@ pub const WorkspaceEdit = struct {
             } = null,
         },
         file_rename: struct {
-            kind: String = Kind.Rename,
+            kind: Str = Kind.Rename,
             oldUri: DocumentUri,
             newUri: DocumentUri,
             options: ?struct {
@@ -200,7 +199,7 @@ pub const WorkspaceEdit = struct {
             } = null,
         },
         file_delete: struct {
-            kind: String = Kind.Delete,
+            kind: Str = Kind.Delete,
             uri: DocumentUri,
             options: ?struct {
                 recursive: ?bool = null,
@@ -209,31 +208,31 @@ pub const WorkspaceEdit = struct {
         },
 
         pub const Kind = struct {
-            pub const Create: String = "create";
-            pub const Rename: String = "rename";
-            pub const Delete: String = "delete";
+            pub const Create: Str = "create";
+            pub const Rename: Str = "rename";
+            pub const Delete: Str = "delete";
         };
     };
 };
 
 pub const TextDocumentItem = struct {
     uri: DocumentUri,
-    languageId: String,
+    languageId: Str,
     version: isize,
-    text: String,
+    text: Str,
 };
 
 pub const DocumentFilter = struct {
-    language: ?String = null,
-    scheme: ?String = null,
-    pattern: ?String = null,
+    language: ?Str = null,
+    scheme: ?Str = null,
+    pattern: ?Str = null,
 };
 
 pub const DocumentSelector = []const DocumentFilter;
 
 pub const MarkupContent = struct {
-    kind: String = Kind.markdown,
-    value: String,
+    kind: Str = Kind.markdown,
+    value: Str,
 
     pub const Kind = struct {
         pub const plaintext = "plaintext";
@@ -245,13 +244,13 @@ pub const InitializeParams = struct {
     WorkDoneProgressParams: WorkDoneProgressParams,
     processId: ?isize = null,
     clientInfo: ?struct {
-        name: String,
-        version: ?String = null,
+        name: Str,
+        version: ?Str = null,
     } = null,
     rootUri: ?DocumentUri = null,
     initializationOptions: ?jsonic.AnyValue = null,
     capabilities: ClientCapabilities,
-    trace: ?String = null,
+    trace: ?Str = null,
     workspaceFolders: ?[]WorkspaceFolder = null,
 
     pub const Trace = struct {
@@ -369,8 +368,8 @@ pub const ClientCapabilities = struct {
 
     pub const WorkspaceEditClientCapabilities = struct {
         documentChanges: ?bool = null,
-        resourceOperations: ?[]String = null,
-        failureHandling: ?String = null,
+        resourceOperations: ?[]Str = null,
+        failureHandling: ?Str = null,
 
         pub const ResourceOperationKind = struct {
             pub const Create = "create";
@@ -436,7 +435,7 @@ pub const ClientCapabilities = struct {
             completionItem: ?struct {
                 snippetSupport: ?bool = null,
                 commitCharactersSupport: ?bool = null,
-                documentationFormat: ?[]String = null,
+                documentationFormat: ?[]Str = null,
                 deprecatedSupport: ?bool = null,
                 preselectSupport: ?bool = null,
                 tagSupport: ?struct {
@@ -453,12 +452,12 @@ pub const ClientCapabilities = struct {
         };
         pub const HoverClientCapabilities = struct {
             dynamicRegistration: ?bool = null,
-            contentFormat: ?[]String = null,
+            contentFormat: ?[]Str = null,
         };
         pub const SignatureHelpClientCapabilities = struct {
             dynamicRegistration: ?bool = null,
             signatureInformation: ?struct {
-                documentationFormat: ?[]String = null,
+                documentationFormat: ?[]Str = null,
                 parameterInformation: ?struct {
                     labelOffsetSupport: ?bool = null,
                 } = null,
@@ -518,7 +517,7 @@ pub const ClientCapabilities = struct {
             dynamicRegistration: ?bool = null,
             codeActionLiteralSupport: ?struct {
                 codeActionKind: struct {
-                    valueSet: []String,
+                    valueSet: []Str,
                 },
             } = null,
             isPreferredSupport: ?bool = null,
@@ -529,8 +528,8 @@ pub const ClientCapabilities = struct {
 pub const InitializeResult = struct {
     capabilities: ServerCapabilities,
     serverInfo: ?struct {
-        name: String,
-        version: ?String = null,
+        name: Str,
+        version: ?Str = null,
     } = null,
 };
 
@@ -546,8 +545,8 @@ pub const WorkDoneProgressOptions = struct {
 
 pub const DocumentOnTypeFormattingOptions = struct {
     TextDocumentRegistrationOptions: ?TextDocumentRegistrationOptions = null,
-    firstTriggerCharacter: String,
-    moreTriggerCharacter: ?[]String = null,
+    firstTriggerCharacter: Str,
+    moreTriggerCharacter: ?[]Str = null,
 };
 
 pub const DocumentLinkOptions = struct {
@@ -569,7 +568,7 @@ pub const TextDocumentSyncOptions = struct {
 };
 
 pub const StaticRegistrationOptions = struct {
-    id: ?String = null,
+    id: ?Str = null,
 };
 
 pub const ServerCapabilities = struct {
@@ -661,19 +660,19 @@ pub const ServerCapabilities = struct {
         supported: ?bool = null,
         changeNotifications: ?union(enum) {
             enabled: bool,
-            registrationId: String,
+            registrationId: Str,
         } = null,
     };
 
     pub const ExecuteCommandOptions = struct {
         WorkDoneProgressOptions: ?WorkDoneProgressOptions = null,
-        commands: []const String,
+        commands: []const Str,
     };
 
     pub const CodeActionOptions = struct {
         WorkDoneProgressOptions: ?WorkDoneProgressOptions = null,
         TextDocumentRegistrationOptions: ?TextDocumentRegistrationOptions = null,
-        codeActionKinds: ?[]String = null,
+        codeActionKinds: ?[]Str = null,
     };
 
     pub const RenameOptions = struct {
@@ -740,8 +739,8 @@ pub const ServerCapabilities = struct {
         WorkDoneProgressOptions: ?WorkDoneProgressOptions = null,
         TextDocumentRegistrationOptions: ?TextDocumentRegistrationOptions = null,
         resolveProvider: ?bool = null,
-        triggerCharacters: ?[]String = null,
-        allCommitCharacters: ?[]String = null,
+        triggerCharacters: ?[]Str = null,
+        allCommitCharacters: ?[]Str = null,
     };
 
     pub const HoverOptions = struct {
@@ -752,8 +751,8 @@ pub const ServerCapabilities = struct {
     pub const SignatureHelpOptions = struct {
         WorkDoneProgressOptions: ?WorkDoneProgressOptions = null,
         TextDocumentRegistrationOptions: ?TextDocumentRegistrationOptions = null,
-        triggerCharacters: ?[]const String = null,
-        retriggerCharacters: ?[]const String = null,
+        triggerCharacters: ?[]const Str = null,
+        retriggerCharacters: ?[]const Str = null,
     };
 
     pub const WorkspaceSymbolOptions = struct {
@@ -771,7 +770,7 @@ pub const InitializedParams = struct {};
 
 pub const ShowMessageParams = struct {
     @"type": MessageType,
-    message: String,
+    message: Str,
 };
 
 pub const MessageType = enum {
@@ -784,22 +783,22 @@ pub const MessageType = enum {
 
 pub const ShowMessageRequestParams = struct {
     @"type": MessageType,
-    message: String,
+    message: Str,
     actions: ?[]MessageActionItem = null,
 };
 
 pub const MessageActionItem = struct {
-    title: String,
+    title: Str,
 };
 
 pub const LogMessageParams = struct {
     @"type": MessageType,
-    message: String,
+    message: Str,
 };
 
 pub const Registration = struct {
-    id: String,
-    method: String,
+    id: Str,
+    method: Str,
     registerOptions: ?jsonic.AnyValue = null,
 };
 
@@ -812,8 +811,8 @@ pub const TextDocumentRegistrationOptions = struct {
 };
 
 pub const Unregistration = struct {
-    id: String,
-    method: String,
+    id: Str,
+    method: Str,
 };
 
 pub const UnregistrationParams = struct {
@@ -822,7 +821,7 @@ pub const UnregistrationParams = struct {
 
 pub const WorkspaceFolder = struct {
     uri: DocumentUri,
-    name: String,
+    name: Str,
 };
 
 pub const DidChangeWorkspaceFoldersParams = struct {
@@ -844,7 +843,7 @@ pub const ConfigurationParams = struct {
 
 pub const ConfigurationItem = struct {
     scopeUri: ?DocumentUri = null,
-    section: ?String = null,
+    section: ?Str = null,
 };
 
 pub const DidChangeWatchedFilesParams = struct {
@@ -868,7 +867,7 @@ pub const DidChangeWatchedFilesRegistrationOptions = struct {
 };
 
 pub const FileSystemWatcher = struct {
-    globPattern: String,
+    globPattern: Str,
     kind: ?enum {
         Created = 1,
         Changed = 2,
@@ -879,23 +878,23 @@ pub const FileSystemWatcher = struct {
 pub const WorkspaceSymbolParams = struct {
     WorkDoneProgressParams: WorkDoneProgressParams,
     PartialResultParams: PartialResultParams,
-    query: String,
+    query: Str,
 };
 
 pub const ExecuteCommandParams = struct {
     WorkDoneProgressParams: WorkDoneProgressParams,
-    command: String,
+    command: Str,
     arguments: ?[]jsonic.AnyValue = null,
 };
 
 pub const ApplyWorkspaceEditParams = struct {
-    label: ?String = null,
+    label: ?Str = null,
     edit: WorkspaceEdit,
 };
 
 pub const ApplyWorkspaceEditResponse = struct {
     applied: bool,
-    failureReason: ?String = null,
+    failureReason: ?Str = null,
 };
 
 pub const DidOpenTextDocumentParams = struct {
@@ -909,7 +908,7 @@ pub const DidChangeTextDocumentParams = struct {
 
 pub const TextDocumentContentChangeEvent = struct {
     range: ?Range = null,
-    text: String,
+    text: Str,
 };
 
 pub const TextDocumentChangeRegistrationOptions = struct {
@@ -928,7 +927,7 @@ pub const WillSaveTextDocumentParams = struct {
 
 pub const DidSaveTextDocumentParams = struct {
     textDocument: TextDocumentIdentifier,
-    text: ?String = null,
+    text: ?Str = null,
 };
 
 pub const TextDocumentSaveRegistrationOptions = struct {
@@ -961,7 +960,7 @@ pub const CompletionTriggerKind = enum {
 
 pub const CompletionContext = struct {
     triggerKind: ?CompletionTriggerKind = null,
-    triggerCharacter: ?String = null,
+    triggerCharacter: ?Str = null,
 };
 
 pub const CompletionList = struct {
@@ -976,20 +975,20 @@ pub const InsertTextFormat = enum {
 };
 
 pub const CompletionItem = struct {
-    label: String,
+    label: Str,
     kind: ?CompletionItemKind = null,
     tags: ?[]CompletionItemTag = null,
-    detail: ?String = null,
+    detail: ?Str = null,
     documentation: ?MarkupContent = null,
     preselect: ?bool = null,
-    sortText: ?String = null,
-    filterText: ?String = null,
-    insertText: ?String = null,
+    sortText: ?Str = null,
+    filterText: ?Str = null,
+    insertText: ?Str = null,
     insertTextFormat: ?InsertTextFormat = null,
     textEdit: ?TextEdit = null,
     additionalTextEdits: ?[]TextEdit = null,
-    commitCharacters: ?[]String = null,
-    command: ?String = null,
+    commitCharacters: ?[]Str = null,
+    command: ?Str = null,
     data: ?jsonic.AnyValue = null,
 };
 
@@ -1005,13 +1004,13 @@ pub const SignatureHelp = struct {
 };
 
 pub const SignatureInformation = struct {
-    label: String,
+    label: Str,
     documentation: ?MarkupContent = null,
     parameters: ?[]ParameterInformation = null,
 };
 
 pub const ParameterInformation = struct {
-    label: String,
+    label: Str,
     documentation: ?MarkupContent = null,
 };
 
@@ -1042,8 +1041,8 @@ pub const DocumentSymbolParams = struct {
 };
 
 pub const DocumentSymbol = struct {
-    name: String,
-    detail: ?String = null,
+    name: Str,
+    detail: ?Str = null,
     kind: SymbolKind,
     deprecated: ?bool = null,
     range: Range,
@@ -1052,11 +1051,11 @@ pub const DocumentSymbol = struct {
 };
 
 pub const SymbolInformation = struct {
-    name: String,
+    name: Str,
     kind: SymbolKind,
     deprecated: ?bool = null,
     location: Location,
-    containerName: ?String = null,
+    containerName: ?Str = null,
 };
 
 pub const CodeActionParams = struct {
@@ -1069,12 +1068,12 @@ pub const CodeActionParams = struct {
 
 pub const CodeActionContext = struct {
     diagnostics: []Diagnostic,
-    only: ?[]String = null,
+    only: ?[]Str = null,
 };
 
 pub const CodeAction = struct {
-    title: String,
-    kind: ?String = null,
+    title: Str,
+    kind: ?Str = null,
     diagnostics: ?[]Diagnostic = null,
     isPreferred: ?bool = null,
     edit: ?WorkspaceEdit = null,
@@ -1102,7 +1101,7 @@ pub const DocumentLinkParams = struct {
 pub const DocumentLink = struct {
     range: Range,
     target: ?DocumentUri = null,
-    toolTip: ?String = null,
+    toolTip: ?Str = null,
     data: ?jsonic.AnyValue = null,
 };
 
@@ -1133,7 +1132,7 @@ pub const ColorPresentationParams = struct {
 };
 
 pub const ColorPresentation = struct {
-    label: String,
+    label: Str,
     textEdit: ?TextEdit = null,
     additionalTextEdits: ?[]TextEdit = null,
 };
@@ -1153,7 +1152,7 @@ pub const DocumentRangeFormattingParams = struct {
 
 pub const DocumentOnTypeFormattingParams = struct {
     TextDocumentPositionParams: TextDocumentPositionParams,
-    ch: String,
+    ch: Str,
     options: FormattingOptions,
 };
 
@@ -1168,7 +1167,7 @@ pub const FormattingOptions = struct {
 pub const RenameParams = struct {
     TextDocumentPositionParams: TextDocumentPositionParams,
     WorkDoneProgressParams: WorkDoneProgressParams,
-    newName: String,
+    newName: Str,
 };
 
 pub const FoldingRangeParams = struct {
@@ -1182,7 +1181,7 @@ pub const FoldingRange = struct {
     startCharacter: ?isize = null,
     endLine: isize,
     endCharacter: ?isize = null,
-    kind: ?String = null,
+    kind: ?Str = null,
 
     pub const Kind = struct {
         pub const Comment = "comment";
@@ -1217,10 +1216,10 @@ pub const ProgressParams = struct {
 };
 
 pub const WorkDoneProgress = struct {
-    kind: String,
-    title: String,
+    kind: Str,
+    title: Str,
     cancellable: ?bool = false,
-    message: ?String = null,
+    message: ?Str = null,
     percentage: ?usize = null,
 
     pub const Kind = struct {
@@ -1232,7 +1231,7 @@ pub const WorkDoneProgress = struct {
 
 pub const SignatureHelpContext = struct {
     triggerKind: ?SignatureHelpTriggerKind = null,
-    triggerCharacter: ?String = null,
+    triggerCharacter: ?Str = null,
     isRetrigger: bool,
     activeSignatureHelp: ?SignatureHelp = null,
 };

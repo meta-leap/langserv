@@ -1,13 +1,13 @@
 const std = @import("std");
-const zag = @import("../../../zag/zag.zig");
+usingnamespace @import("../../../zag/zag.zig");
 
-pub fn digForStdLibDirPathInNewlyCreatedTempProj(mem: *std.heap.ArenaAllocator, tmp_dir: *zag.io.TmpDir, comptime zig_cmd_spec: []const u8, comptime cache_dir_name: []const u8) !?[]const u8 {
-    const cmd_ziginitlib = std.ChildProcess.exec(&mem.allocator, &[_][]const u8{ zig_cmd_spec, "init-lib" }, null, null, std.math.maxInt(usize)) catch
+pub fn digForStdLibDirPathInNewlyCreatedTempProj(mem: *std.heap.ArenaAllocator, tmp_dir: *zag.io.TmpDir, comptime zig_cmd_spec: Str, comptime cache_dir_name: Str) !?Str {
+    const cmd_ziginitlib = std.ChildProcess.exec(&mem.allocator, &[_]Str{ zig_cmd_spec, "init-lib" }, null, null, std.math.maxInt(usize)) catch
         return null;
     if (cmd_ziginitlib.term != .Exited)
         return null;
 
-    const cmd_zigbuildtest = std.ChildProcess.exec(&mem.allocator, &[_][]const u8{ zig_cmd_spec, "build", "test", "--cache-dir", cache_dir_name }, null, null, std.math.maxInt(usize)) catch
+    const cmd_zigbuildtest = std.ChildProcess.exec(&mem.allocator, &[_]Str{ zig_cmd_spec, "build", "test", "--cache-dir", cache_dir_name }, null, null, std.math.maxInt(usize)) catch
         return null;
     if (cmd_zigbuildtest.term != .Exited)
         return null;

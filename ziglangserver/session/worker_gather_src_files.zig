@@ -1,5 +1,5 @@
 const std = @import("std");
-const zag = @import("../../../zag/zag.zig");
+usingnamespace @import("../../../zag/zag.zig");
 usingnamespace @import("./session.zig");
 
 pub const WorkerThatGathersSrcFiles = struct {
@@ -11,11 +11,11 @@ pub const WorkerThatGathersSrcFiles = struct {
     mutex: std.Mutex = std.Mutex.init(),
 
     pub const JobEntry = union(enum) {
-        dir_added: []const u8,
-        dir_removed: []const u8,
-        file_created: []const u8,
-        file_modified: []const u8,
-        file_deleted: []const u8,
+        dir_added: Str,
+        dir_removed: Str,
+        file_created: Str,
+        file_modified: Str,
+        file_deleted: Str,
     };
 
     pub fn forever(me: *WorkerThatGathersSrcFiles) u8 {
@@ -26,18 +26,17 @@ pub const WorkerThatGathersSrcFiles = struct {
             if (me.session.deinited) break :repeat;
 
             var time_last_enqueued = me.time_last_enqueued.get();
-            if (time_last_enqueued == 0 or (std.time.milliTimestamp() - time_last_enqueued) < 234) {
-                std.time.sleep(42 * std.time.millisecond);
-                continue;
-            } else
+            if (time_last_enqueued == 0 or (std.time.milliTimestamp() - time_last_enqueued) < 234)
+                std.time.sleep(42 * std.time.millisecond)
+            else {
+                me.time_last_enqueued.set(0);
                 me.fetchAndWorkPendingJobs() catch return 1;
+            }
         }
         return 0;
     }
 
     fn fetchAndWorkPendingJobs(me: *WorkerThatGathersSrcFiles) !void {
-        me.time_last_enqueued.set(0);
-
         var jobs_queue: []JobEntry = &[_]JobEntry{};
         {
             const lock = me.mutex.acquire();
@@ -52,11 +51,10 @@ pub const WorkerThatGathersSrcFiles = struct {
 
             switch (job) {
                 .dir_added => |dir_path| {
-                    var src_file_paths = std.ArrayList([]const u8).init(me.session.mem_alloc);
+                    var src_file_paths = try std.ArrayList(Str).initCapacity(me.session.mem_alloc, 128);
                     defer src_file_paths.deinit();
                     try zag.io.gatherAllFiles(&src_file_paths, dir_path, "", ".zig");
-                    for (src_file_paths.items[0..src_file_paths.len]) |src_file_path|
-                        std.debug.warn("{}\n", .{src_file_path});
+                    std.debug.warn("\n{}\n", .{src_file_paths.len});
                 },
                 .dir_removed => {},
                 .file_created => {},
