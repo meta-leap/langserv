@@ -4,7 +4,7 @@ usingnamespace @import("../zigsess/zigsess.zig");
 
 test "" {
     var mem_alloc = zag.debug.Allocator.init(std.heap.page_allocator);
-    defer mem_alloc.report();
+    defer mem_alloc.report("\n\n");
 
     const lsp = @import("./langserv.zig");
 
