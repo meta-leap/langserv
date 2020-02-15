@@ -1,7 +1,24 @@
 usingnamespace @import("./_usingnamespace.zig");
 
-pub var src_files_owned_by_client: std.BufMap = undefined;
-var lock_src_files_owned_by_client = std.Mutex.init();
+pub var src_files_owned_by_client: struct {
+    live_bufs: std.BufMap,
+    versions: std.AutoHashMap(u64, ?isize),
+    mutex: std.Mutex = std.Mutex.init(),
+
+    pub fn lock(me: *@This()) std.Mutex.Held {
+        return me.mutex.acquire();
+    }
+
+    pub fn init(me: *@This()) void {
+        me.live_bufs = std.BufMap.init(mem_alloc);
+        me.versions = std.AutoHashMap(u64, ?isize).init(mem_alloc);
+    }
+
+    pub fn deinit(me: *@This()) void {
+        me.live_bufs.deinit();
+        me.versions.deinit();
+    }
+} = undefined;
 
 pub fn setupWorkspaceFolderAndFileRelatedCapabilitiesAndHandlers(srv: *Server) void {
     srv.cfg.capabilities.textDocumentSync = .{
@@ -39,27 +56,13 @@ fn onDirsEncountered(srv: *Server, mem: *std.mem.Allocator, workspace_folder_uri
 
 pub fn onFileBufOpened(ctx: Server.Ctx(DidOpenTextDocumentParams)) !void {
     const src_file_abs_path = lspUriToFilePath(ctx.value.textDocument.uri);
+    const src_file_id = SrcFile.id(src_file_abs_path);
     {
-        const lock = lock_src_files_owned_by_client.acquire();
+        const lock = src_files_owned_by_client.lock();
         defer lock.release();
-        try src_files_owned_by_client.set(src_file_abs_path, ctx.value.textDocument.text);
-    }
-    try zsess.workers.src_files_gatherer.base.enqueueJobs(&[_]SrcFiles.EnsureTracked{
-        .{
-            .absolute_path = src_file_abs_path,
-            .force_refresh = true,
-        },
-    });
-}
-
-pub fn onFileBufEdited(ctx: Server.Ctx(DidChangeTextDocumentParams)) !void {
-    const src_file_abs_path = lspUriToFilePath(ctx.value.textDocument.TextDocumentIdentifier.uri);
-    {
-        const lock = lock_src_files_owned_by_client.acquire();
-        defer lock.release();
-        if (src_files_owned_by_client.get(src_file_abs_path)) |cur_src| {
-            //
-        }
+        try src_files_owned_by_client.live_bufs.set(src_file_abs_path, ctx.value.textDocument.text);
+        if (try src_files_owned_by_client.versions.put(src_file_id, ctx.value.textDocument.version)) |existed_already|
+            _ = try src_files_owned_by_client.versions.put(src_file_id, null);
     }
     try zsess.workers.src_files_gatherer.base.enqueueJobs(&[_]SrcFiles.EnsureTracked{
         .{
@@ -71,10 +74,47 @@ pub fn onFileBufEdited(ctx: Server.Ctx(DidChangeTextDocumentParams)) !void {
 
 pub fn onFileClosed(ctx: Server.Ctx(DidCloseTextDocumentParams)) !void {
     const src_file_abs_path = lspUriToFilePath(ctx.value.textDocument.uri);
+    const src_file_id = SrcFile.id(src_file_abs_path);
     {
-        const lock = lock_src_files_owned_by_client.acquire();
+        const lock = src_files_owned_by_client.lock();
         defer lock.release();
-        src_files_owned_by_client.delete(src_file_abs_path);
+        src_files_owned_by_client.live_bufs.delete(src_file_abs_path);
+        _ = src_files_owned_by_client.versions.remove(src_file_id);
+    }
+    try zsess.workers.src_files_gatherer.base.enqueueJobs(&[_]SrcFiles.EnsureTracked{
+        .{
+            .absolute_path = src_file_abs_path,
+            .force_refresh = true,
+        },
+    });
+}
+
+pub fn onFileBufEdited(ctx: Server.Ctx(DidChangeTextDocumentParams)) !void {
+    const src_file_abs_path = lspUriToFilePath(ctx.value.textDocument.TextDocumentIdentifier.uri);
+    const src_file_id = SrcFile.id(src_file_abs_path);
+    {
+        const lock = src_files_owned_by_client.lock();
+        defer lock.release();
+
+        if (src_files_owned_by_client.live_bufs.get(src_file_abs_path)) |cur_src| {
+            if (ctx.value.contentChanges.len > 0) {
+                var buf_len: usize = cur_src.len;
+                var capacity = buf_len;
+                for (ctx.value.contentChanges) |*change|
+                    capacity += change.text.len;
+                var buf = try ctx.mem.alloc(u8, capacity);
+                std.mem.copy(u8, buf[0..buf_len], cur_src);
+                for (ctx.value.contentChanges) |*change| {
+                    //
+                }
+                try src_files_owned_by_client.live_bufs.set(src_file_abs_path, buf[0..buf_len]);
+            }
+        }
+        if (ctx.value.textDocument.version) |new_version|
+            if (src_files_owned_by_client.versions.get(src_file_id)) |old_version| {
+                if (old_version.value != null) // improves correctness, see onFileBufOpened
+                    _ = try src_files_owned_by_client.versions.put(src_file_id, new_version);
+            };
     }
     try zsess.workers.src_files_gatherer.base.enqueueJobs(&[_]SrcFiles.EnsureTracked{
         .{
@@ -87,9 +127,9 @@ pub fn onFileClosed(ctx: Server.Ctx(DidCloseTextDocumentParams)) !void {
 pub fn onFileBufSaved(ctx: Server.Ctx(DidSaveTextDocumentParams)) !void {
     const src_file_abs_path = lspUriToFilePath(ctx.value.textDocument.uri);
     if (ctx.value.text) |src_bytes| {
-        const lock = lock_src_files_owned_by_client.acquire();
+        const lock = src_files_owned_by_client.lock();
         defer lock.release();
-        try src_files_owned_by_client.set(src_file_abs_path, src_bytes);
+        try src_files_owned_by_client.live_bufs.set(src_file_abs_path, src_bytes);
     }
     try zsess.workers.src_files_gatherer.base.enqueueJobs(&[_]SrcFiles.EnsureTracked{
         .{
@@ -103,9 +143,9 @@ pub fn onFileEvents(ctx: Server.Ctx(DidChangeWatchedFilesParams)) !void {
     for (ctx.value.changes) |file_event| {
         const src_file_abs_path = lspUriToFilePath(file_event.uri);
         const currently_owned_by_client = check: {
-            const lock = lock_src_files_owned_by_client.acquire();
+            const lock = src_files_owned_by_client.lock();
             defer lock.release();
-            break :check (null != src_files_owned_by_client.get(src_file_abs_path));
+            break :check (null != src_files_owned_by_client.live_bufs.get(src_file_abs_path));
         };
         try zsess.workers.src_files_gatherer.base.enqueueJobs(&[_]SrcFiles.EnsureTracked{
             .{ .absolute_path = src_file_abs_path, .force_refresh = !currently_owned_by_client },
@@ -143,9 +183,9 @@ pub fn onInitRegisterFileWatcherAndProcessWorkspaceFolders(ctx: Server.Ctx(Initi
 
 pub fn loadSrcFileEitherFromFsOrFromLiveBufCache(mem: *std.mem.Allocator, src_file_abs_path: Str) !Str {
     const src_live: ?Str = check: {
-        const lock = lock_src_files_owned_by_client.acquire();
+        const lock = src_files_owned_by_client.lock();
         defer lock.release();
-        break :check src_files_owned_by_client.get(src_file_abs_path);
+        break :check src_files_owned_by_client.live_bufs.get(src_file_abs_path);
     };
     if (src_live) |src|
         return try std.mem.dupe(mem, u8, src)

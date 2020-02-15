@@ -147,7 +147,7 @@ fn onFormat(mem: *std.mem.Allocator, src_file_uri: Str, src_range: ?Range) !Resu
     var ret_range: Range = undefined;
     if (src_range) |range| {
         ret_range = range;
-        src = (try range.slice(src)) orelse return Result(?[]TextEdit){ .ok = null };
+        src = (try range.sliceMut(src)) orelse return Result(?[]TextEdit){ .ok = null };
     } else
         ret_range = (try Range.initFrom(src)) orelse return Result(?[]TextEdit){ .ok = null };
 

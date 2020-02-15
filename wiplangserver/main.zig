@@ -12,7 +12,7 @@ pub fn main() !u8 {
     defer if (std.builtin.mode == .Debug)
         mem_alloc_debug.report("\nExit:\t");
 
-    src_files_owned_by_client = std.BufMap.init(mem_alloc);
+    src_files_owned_by_client.init();
     defer src_files_owned_by_client.deinit();
     SrcFile.loadFromPath = loadSrcFileEitherFromFsOrFromLiveBufCache;
 

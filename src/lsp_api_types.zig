@@ -77,7 +77,7 @@ pub const Range = struct {
         return null;
     }
 
-    pub fn slice(me: *const Range, string: []u8) !?[]u8 {
+    pub fn sliceBounds(me: *const Range, string: Str) !?[2]usize {
         var cur = Position{ .line = 0, .character = 0 };
         var idx_start: ?usize = null;
         var idx_end: ?usize = null;
@@ -100,9 +100,23 @@ pub const Range = struct {
         }
         if (idx_start) |i_start| {
             if (idx_end) |i_end|
-                return string[i_start..i_end];
+                return [2]usize{ i_start, i_end };
         }
         return null;
+    }
+
+    pub fn sliceConst(me: *const Range, string: Str) !?Str {
+        return if (try me.sliceBounds(string)) |start_and_end|
+            string[start_and_end[0]..start_and_end[1]]
+        else
+            null;
+    }
+
+    pub fn sliceMut(me: *const Range, string: []u8) !?[]u8 {
+        return if (try me.sliceBounds(string)) |start_and_end|
+            string[start_and_end[0]..start_and_end[1]]
+        else
+            null;
     }
 };
 
