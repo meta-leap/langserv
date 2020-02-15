@@ -42,11 +42,12 @@ fn onInitialized(ctx: Server.Ctx(InitializedParams)) !void {
         }
     });
 
-    try onDirsAdded(
+    try onDirsEncountered(
         ctx.inst,
         ctx.mem,
         ctx.inst.initialized.?.rootUri orelse "",
         ctx.inst.initialized.?.workspaceFolders orelse &[_]WorkspaceFolder{},
+        &[_]WorkspaceFolder{},
     );
 }
 

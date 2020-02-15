@@ -1,6 +1,6 @@
 usingnamespace @import("./_usingnamespace.zig");
 
-pub fn onDirsAdded(srv: *Server, mem: *std.mem.Allocator, workspace_folder_uri: Str, workspace_folders: []WorkspaceFolder) !void {
+pub fn onDirsEncountered(srv: *Server, mem: *std.mem.Allocator, workspace_folder_uri: Str, workspace_folders: []WorkspaceFolder, more_workspace_folders: []WorkspaceFolder) !void {
     if (workspace_folder_uri.len == 0 and workspace_folders.len == 0)
         return;
 
@@ -9,11 +9,13 @@ pub fn onDirsAdded(srv: *Server, mem: *std.mem.Allocator, workspace_folder_uri: 
         try dir_paths.append(.{ .full_path = std.mem.trimLeft(u8, workspace_folder_uri, "file://"), .event_kind = .dir_added });
     for (workspace_folders) |*workspace_folder|
         try dir_paths.append(.{ .full_path = std.mem.trimLeft(u8, workspace_folder.uri, "file://"), .event_kind = .dir_added });
+    for (more_workspace_folders) |*workspace_folder|
+        try dir_paths.append(.{ .full_path = std.mem.trimLeft(u8, workspace_folder.uri, "file://"), .event_kind = .dir_added });
     try zsess.workers.src_files_gatherer.base.enqueueJobs(dir_paths.toSliceConst());
 }
 
 pub fn onDirEvent(ctx: Server.Ctx(DidChangeWorkspaceFoldersParams)) !void {
-    try onDirsAdded(ctx.inst, ctx.mem, "", ctx.value.event.added);
+    try onDirsEncountered(ctx.inst, ctx.mem, "", ctx.value.event.added, ctx.value.event.removed);
 }
 
 pub fn onFileBufOpened(ctx: Server.Ctx(DidOpenTextDocumentParams)) error{}!void {
