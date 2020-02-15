@@ -34,8 +34,13 @@ fn onDirsEncountered(srv: *Server, mem: *std.mem.Allocator, workspace_folder_uri
     try zsess.workers.src_files_gatherer.base.enqueueJobs(dir_paths.toSliceConst());
 }
 
-pub fn onFileBufOpened(ctx: Server.Ctx(DidOpenTextDocumentParams)) error{}!void {
-    std.debug.warn("\nonFileBufOpened\t{}\t{}\n", .{ lspUriToFilePath(ctx.value.textDocument.uri), ctx.value.textDocument.languageId });
+pub fn onFileBufOpened(ctx: Server.Ctx(DidOpenTextDocumentParams)) !void {
+    try zsess.workers.src_files_gatherer.base.enqueueJobs(&[_]SrcFiles.EnsureTracked{
+        .{
+            .absolute_path = lspUriToFilePath(ctx.value.textDocument.uri),
+            .cur_live_buf_content = ctx.value.textDocument.text,
+        },
+    });
 }
 
 pub fn onFileClosed(ctx: Server.Ctx(DidCloseTextDocumentParams)) !void {
