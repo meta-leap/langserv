@@ -4,17 +4,22 @@ const stdout = std.io.getStdOut();
 
 fn stdoutWrite(out_bytes: Str) !void {
     try stdout.write(out_bytes);
+    if (std.builtin.mode == .Debug)
+        mem_alloc_debug.report("\n");
 }
 
 pub fn main() !u8 {
+    defer if (std.builtin.mode == .Debug)
+        mem_alloc_debug.report("\nExit:\t");
+
     try zsess.initAndStart(mem_alloc, "/home/_/tmp");
     defer zsess.stopAndDeinit();
 
     var server = Server{ .onOutput = stdoutWrite };
     setupServer(&server);
-    try server.forever(&std.io.BufferedInStream(std.os.ReadError).
-        init(&std.io.getStdIn().inStream().stream).stream);
-    return 1; // lsp.Server.forever does a proper os.exit(0) when so instructed by lang-client (which conventionally also launched it)
+
+    return if (server.forever(&std.io.BufferedInStream(std.os.ReadError).
+        init(&std.io.getStdIn().inStream().stream).stream)) 0 else |err| 1;
 }
 
 fn setupServer(server: *Server) void {

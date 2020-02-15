@@ -15,6 +15,7 @@ pub const Server = struct {
         .serverInfo = .{ .name = "unnamed" },
     },
     initialized: ?InitializeParams = null,
+    exit_notification_received_from_client: bool = false,
     onOutput: fn (Str) anyerror!void,
     api: LspApi = LspApi{
         .owner = undefined,
@@ -29,7 +30,6 @@ pub const Server = struct {
 
     pub fn forever(me: *Server, in_stream: var) !void {
         me.api.owner = me;
-
         me.initialized = null;
 
         if (me.api.__.handlers_requests[@enumToInt(api_server_side.RequestIn.initialize)]) |_|
@@ -67,7 +67,10 @@ pub const Server = struct {
                     .{ @errorName(err), msg_body },
                 ),
             };
+            if (me.exit_notification_received_from_client)
+                return;
         }
+        return error.EndOfStdinWithoutProperExitNotificationFromClient;
     }
 
     fn onOutputPrependHeader(mem: *std.mem.Allocator, me: *Server, raw_json_bytes_to_output: Str) void {
@@ -89,5 +92,5 @@ fn on_cancel(ctx: LspApi.Ctx(CancelParams)) error{}!void {
 }
 
 fn on_exit(ctx: LspApi.Ctx(void)) error{}!void {
-    std.os.exit(0);
+    ctx.inst.exit_notification_received_from_client = true;
 }

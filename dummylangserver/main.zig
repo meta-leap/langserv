@@ -9,12 +9,11 @@ fn stdoutWrite(out_bytes: Str) !void {
     try stdout.write(out_bytes);
 }
 
-pub fn main() !u8 {
+pub fn main() !void {
     var server = lsp.Server{ .onOutput = stdoutWrite };
     setupServer(&server);
     try server.forever(&std.io.BufferedInStream(std.os.ReadError).
         init(&std.io.getStdIn().inStream().stream).stream);
-    return 1; // lsp.Server.forever does a proper os.exit(0) when so instructed by lang-client (which conventionally also launched it)
 }
 
 fn setupServer(server: *lsp.Server) void {
