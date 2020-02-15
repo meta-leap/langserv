@@ -26,20 +26,22 @@ fn onDirsEncountered(srv: *Server, mem: *std.mem.Allocator, workspace_folder_uri
 
     var dir_paths = try std.ArrayList(SrcFiles.EnsureTracked).initCapacity(mem, 1 + workspace_folders.len + more_workspace_folders.len);
     if (workspace_folder_uri.len > 0)
-        try dir_paths.append(.{ .absolute_path = zag.mem.trimPrefix(u8, workspace_folder_uri, "file://") });
+        try dir_paths.append(.{ .absolute_path = lspUriToFilePath(workspace_folder_uri) });
     for (workspace_folders) |*workspace_folder|
-        try dir_paths.append(.{ .absolute_path = zag.mem.trimPrefix(u8, workspace_folder.uri, "file://") });
+        try dir_paths.append(.{ .absolute_path = lspUriToFilePath(workspace_folder.uri) });
     for (more_workspace_folders) |*workspace_folder|
-        try dir_paths.append(.{ .absolute_path = zag.mem.trimPrefix(u8, workspace_folder.uri, "file://") });
+        try dir_paths.append(.{ .absolute_path = lspUriToFilePath(workspace_folder.uri) });
     try zsess.workers.src_files_gatherer.base.enqueueJobs(dir_paths.toSliceConst());
 }
 
 pub fn onFileBufOpened(ctx: Server.Ctx(DidOpenTextDocumentParams)) error{}!void {
-    std.debug.warn("\nonFileBufOpened\t{}\t{}\n", .{ ctx.value.textDocument.uri, ctx.value.textDocument.languageId });
+    std.debug.warn("\nonFileBufOpened\t{}\t{}\n", .{ lspUriToFilePath(ctx.value.textDocument.uri), ctx.value.textDocument.languageId });
 }
 
-pub fn onFileClosed(ctx: Server.Ctx(DidCloseTextDocumentParams)) error{}!void {
-    std.debug.warn("\nonFileBufClosed\n", .{});
+pub fn onFileClosed(ctx: Server.Ctx(DidCloseTextDocumentParams)) !void {
+    try zsess.workers.src_files_gatherer.base.enqueueJobs(&[_]SrcFiles.EnsureTracked{
+        .{ .absolute_path = lspUriToFilePath(ctx.value.textDocument.uri) },
+    });
 }
 
 pub fn onFileBufEdited(ctx: Server.Ctx(DidChangeTextDocumentParams)) error{}!void {
