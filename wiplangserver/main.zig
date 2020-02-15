@@ -12,6 +12,10 @@ pub fn main() !u8 {
     defer if (std.builtin.mode == .Debug)
         mem_alloc_debug.report("\nExit:\t");
 
+    SrcFile.loadFromPath = loadSrcFileFromPath;
+    src_files_owned_by_client = std.BufMap.init(mem_alloc);
+    defer src_files_owned_by_client.deinit();
+
     try zsess.initAndStart(mem_alloc, "/home/_/tmp");
     defer zsess.stopAndDeinit();
 

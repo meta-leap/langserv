@@ -1,5 +1,7 @@
 usingnamespace @import("./_usingnamespace.zig");
 
+pub var src_files_owned_by_client: std.BufMap = undefined;
+
 pub fn setupWorkspaceFolderAndFileRelatedCapabilitiesAndHandlers(srv: *Server) void {
     srv.cfg.capabilities.textDocumentSync = .{
         .options = .{
@@ -35,30 +37,57 @@ fn onDirsEncountered(srv: *Server, mem: *std.mem.Allocator, workspace_folder_uri
 }
 
 pub fn onFileBufOpened(ctx: Server.Ctx(DidOpenTextDocumentParams)) !void {
+    const src_file_abs_path = lspUriToFilePath(ctx.value.textDocument.uri);
+    try src_files_owned_by_client.set(src_file_abs_path, ctx.value.textDocument.text);
     try zsess.workers.src_files_gatherer.base.enqueueJobs(&[_]SrcFiles.EnsureTracked{
         .{
-            .absolute_path = lspUriToFilePath(ctx.value.textDocument.uri),
-            .cur_live_buf_content = ctx.value.textDocument.text,
+            .absolute_path = src_file_abs_path,
+            .force_refresh = true,
+        },
+    });
+}
+
+pub fn onFileBufEdited(ctx: Server.Ctx(DidChangeTextDocumentParams)) !void {
+    const src_file_abs_path = lspUriToFilePath(ctx.value.textDocument.TextDocumentIdentifier.uri);
+    try zsess.workers.src_files_gatherer.base.enqueueJobs(&[_]SrcFiles.EnsureTracked{
+        .{
+            .absolute_path = src_file_abs_path,
+            .force_refresh = true,
         },
     });
 }
 
 pub fn onFileClosed(ctx: Server.Ctx(DidCloseTextDocumentParams)) !void {
+    const src_file_abs_path = lspUriToFilePath(ctx.value.textDocument.uri);
+    src_files_owned_by_client.delete(src_file_abs_path);
     try zsess.workers.src_files_gatherer.base.enqueueJobs(&[_]SrcFiles.EnsureTracked{
-        .{ .absolute_path = lspUriToFilePath(ctx.value.textDocument.uri) },
+        .{
+            .absolute_path = src_file_abs_path,
+            .force_refresh = true,
+        },
     });
 }
 
-pub fn onFileBufEdited(ctx: Server.Ctx(DidChangeTextDocumentParams)) error{}!void {
-    //
+pub fn onFileBufSaved(ctx: Server.Ctx(DidSaveTextDocumentParams)) !void {
+    const src_file_abs_path = lspUriToFilePath(ctx.value.textDocument.uri);
+    if (ctx.value.text) |src_bytes|
+        try src_files_owned_by_client.set(src_file_abs_path, src_bytes);
+    try zsess.workers.src_files_gatherer.base.enqueueJobs(&[_]SrcFiles.EnsureTracked{
+        .{
+            .absolute_path = src_file_abs_path,
+            .force_refresh = (ctx.value.text != null),
+        },
+    });
 }
 
-pub fn onFileBufSaved(ctx: Server.Ctx(DidSaveTextDocumentParams)) error{}!void {
-    //
-}
-
-pub fn onFileEvents(ctx: Server.Ctx(DidChangeWatchedFilesParams)) error{}!void {
-    //
+pub fn onFileEvents(ctx: Server.Ctx(DidChangeWatchedFilesParams)) !void {
+    for (ctx.value.changes) |file_event| {
+        const src_file_abs_path = lspUriToFilePath(file_event.uri);
+        const currently_owned_by_client = (null != src_files_owned_by_client.get(src_file_abs_path));
+        try zsess.workers.src_files_gatherer.base.enqueueJobs(&[_]SrcFiles.EnsureTracked{
+            .{ .absolute_path = src_file_abs_path, .force_refresh = !currently_owned_by_client },
+        });
+    }
 }
 
 pub fn onInitRegisterFileWatcherAndProcessWorkspaceFolders(ctx: Server.Ctx(InitializedParams)) !void {
@@ -87,4 +116,8 @@ pub fn onInitRegisterFileWatcherAndProcessWorkspaceFolders(ctx: Server.Ctx(Initi
         ctx.inst.initialized.?.workspaceFolders orelse &[_]WorkspaceFolder{},
         &[_]WorkspaceFolder{},
     );
+}
+
+pub fn loadSrcFileFromPath(mem: *std.mem.Allocator, src_file_abs_path: Str) !Str {
+    return SrcFile.defaultLoadFromPath(mem, src_file_abs_path);
 }
