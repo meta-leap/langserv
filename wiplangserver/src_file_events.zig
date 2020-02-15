@@ -1,6 +1,7 @@
 usingnamespace @import("./_usingnamespace.zig");
 
 pub var src_files_owned_by_client: std.BufMap = undefined;
+var lock_src_files_owned_by_client = std.Mutex.init();
 
 pub fn setupWorkspaceFolderAndFileRelatedCapabilitiesAndHandlers(srv: *Server) void {
     srv.cfg.capabilities.textDocumentSync = .{
@@ -38,7 +39,11 @@ fn onDirsEncountered(srv: *Server, mem: *std.mem.Allocator, workspace_folder_uri
 
 pub fn onFileBufOpened(ctx: Server.Ctx(DidOpenTextDocumentParams)) !void {
     const src_file_abs_path = lspUriToFilePath(ctx.value.textDocument.uri);
-    try src_files_owned_by_client.set(src_file_abs_path, ctx.value.textDocument.text);
+    {
+        const lock = lock_src_files_owned_by_client.acquire();
+        defer lock.release();
+        try src_files_owned_by_client.set(src_file_abs_path, ctx.value.textDocument.text);
+    }
     try zsess.workers.src_files_gatherer.base.enqueueJobs(&[_]SrcFiles.EnsureTracked{
         .{
             .absolute_path = src_file_abs_path,
@@ -49,6 +54,13 @@ pub fn onFileBufOpened(ctx: Server.Ctx(DidOpenTextDocumentParams)) !void {
 
 pub fn onFileBufEdited(ctx: Server.Ctx(DidChangeTextDocumentParams)) !void {
     const src_file_abs_path = lspUriToFilePath(ctx.value.textDocument.TextDocumentIdentifier.uri);
+    {
+        const lock = lock_src_files_owned_by_client.acquire();
+        defer lock.release();
+        if (src_files_owned_by_client.get(src_file_abs_path)) |cur_src| {
+            //
+        }
+    }
     try zsess.workers.src_files_gatherer.base.enqueueJobs(&[_]SrcFiles.EnsureTracked{
         .{
             .absolute_path = src_file_abs_path,
@@ -59,7 +71,11 @@ pub fn onFileBufEdited(ctx: Server.Ctx(DidChangeTextDocumentParams)) !void {
 
 pub fn onFileClosed(ctx: Server.Ctx(DidCloseTextDocumentParams)) !void {
     const src_file_abs_path = lspUriToFilePath(ctx.value.textDocument.uri);
-    src_files_owned_by_client.delete(src_file_abs_path);
+    {
+        const lock = lock_src_files_owned_by_client.acquire();
+        defer lock.release();
+        src_files_owned_by_client.delete(src_file_abs_path);
+    }
     try zsess.workers.src_files_gatherer.base.enqueueJobs(&[_]SrcFiles.EnsureTracked{
         .{
             .absolute_path = src_file_abs_path,
@@ -70,8 +86,11 @@ pub fn onFileClosed(ctx: Server.Ctx(DidCloseTextDocumentParams)) !void {
 
 pub fn onFileBufSaved(ctx: Server.Ctx(DidSaveTextDocumentParams)) !void {
     const src_file_abs_path = lspUriToFilePath(ctx.value.textDocument.uri);
-    if (ctx.value.text) |src_bytes|
+    if (ctx.value.text) |src_bytes| {
+        const lock = lock_src_files_owned_by_client.acquire();
+        defer lock.release();
         try src_files_owned_by_client.set(src_file_abs_path, src_bytes);
+    }
     try zsess.workers.src_files_gatherer.base.enqueueJobs(&[_]SrcFiles.EnsureTracked{
         .{
             .absolute_path = src_file_abs_path,
@@ -83,7 +102,11 @@ pub fn onFileBufSaved(ctx: Server.Ctx(DidSaveTextDocumentParams)) !void {
 pub fn onFileEvents(ctx: Server.Ctx(DidChangeWatchedFilesParams)) !void {
     for (ctx.value.changes) |file_event| {
         const src_file_abs_path = lspUriToFilePath(file_event.uri);
-        const currently_owned_by_client = (null != src_files_owned_by_client.get(src_file_abs_path));
+        const currently_owned_by_client = check: {
+            const lock = lock_src_files_owned_by_client.acquire();
+            defer lock.release();
+            break :check (null != src_files_owned_by_client.get(src_file_abs_path));
+        };
         try zsess.workers.src_files_gatherer.base.enqueueJobs(&[_]SrcFiles.EnsureTracked{
             .{ .absolute_path = src_file_abs_path, .force_refresh = !currently_owned_by_client },
         });
@@ -119,5 +142,13 @@ pub fn onInitRegisterFileWatcherAndProcessWorkspaceFolders(ctx: Server.Ctx(Initi
 }
 
 pub fn loadSrcFileEitherFromFsOrFromLiveBufCache(mem: *std.mem.Allocator, src_file_abs_path: Str) !Str {
-    return SrcFile.defaultLoadFromPath(mem, src_file_abs_path);
+    const src_live: ?Str = check: {
+        const lock = lock_src_files_owned_by_client.acquire();
+        defer lock.release();
+        break :check src_files_owned_by_client.get(src_file_abs_path);
+    };
+    if (src_live) |src|
+        return try std.mem.dupe(mem, u8, src)
+    else
+        return try SrcFile.defaultLoadFromPath(mem, src_file_abs_path);
 }
