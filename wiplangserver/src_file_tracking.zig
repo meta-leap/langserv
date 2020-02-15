@@ -119,7 +119,7 @@ pub fn onFileBufEdited(ctx: Server.Ctx(DidChangeTextDocumentParams)) !void {
                         [2]usize{ 0, buf_len };
                     buf_len = zag.mem.edit(buf, buf_len, start_end[0], start_end[1], change.text);
                 }
-                std.debug.warn("\n\nNEWSRC:>>>>>{}<<<<<<<<\n\n", .{buf[0..buf_len]});
+                // std.debug.warn("\n\nNEWSRC:>>>>>{}<<<<<<<<\n\n", .{buf[0..buf_len]});
                 try src_files_owned_by_client.live_bufs.set(src_file_abs_path, buf[0..buf_len]);
             }
         } else {
