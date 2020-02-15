@@ -92,7 +92,7 @@ pub fn onFileClosed(ctx: Server.Ctx(DidCloseTextDocumentParams)) !void {
 pub fn onFileBufEdited(ctx: Server.Ctx(DidChangeTextDocumentParams)) !void {
     const src_file_abs_path = lspUriToFilePath(ctx.value.textDocument.TextDocumentIdentifier.uri);
     const src_file_id = SrcFile.id(src_file_abs_path);
-    {
+    buf_update: {
         const lock = src_files_owned_by_client.lock();
         defer lock.release();
 
@@ -105,14 +105,31 @@ pub fn onFileBufEdited(ctx: Server.Ctx(DidChangeTextDocumentParams)) !void {
                 var buf = try ctx.mem.alloc(u8, capacity);
                 std.mem.copy(u8, buf[0..buf_len], cur_src);
                 for (ctx.value.contentChanges) |*change| {
-                    //
+                    const start_end = if (change.range) |range|
+                        ((range.sliceBounds(buf[0..buf_len]) catch |err| {
+                            src_files_owned_by_client.live_bufs.delete(src_file_abs_path);
+                            _ = src_files_owned_by_client.versions.remove(src_file_id);
+                            break :buf_update;
+                        }) orelse {
+                            src_files_owned_by_client.live_bufs.delete(src_file_abs_path);
+                            _ = src_files_owned_by_client.versions.remove(src_file_id);
+                            break :buf_update;
+                        })
+                    else
+                        [2]usize{ 0, buf_len };
+                    buf_len = zag.mem.edit(buf, buf_len, start_end[0], start_end[1], change.text);
                 }
+                std.debug.warn("\n\nNEWSRC:>>>>>{}<<<<<<<<\n\n", .{buf[0..buf_len]});
                 try src_files_owned_by_client.live_bufs.set(src_file_abs_path, buf[0..buf_len]);
             }
+        } else {
+            src_files_owned_by_client.live_bufs.delete(src_file_abs_path);
+            _ = src_files_owned_by_client.versions.remove(src_file_id);
+            break :buf_update;
         }
         if (ctx.value.textDocument.version) |new_version|
             if (src_files_owned_by_client.versions.get(src_file_id)) |old_version| {
-                if (old_version.value != null) // improves correctness, see onFileBufOpened
+                if (old_version.value != null) // improves correctness in case of buggy / non-spec-conformant clients, see onFileBufOpened
                     _ = try src_files_owned_by_client.versions.put(src_file_id, new_version);
             };
     }
