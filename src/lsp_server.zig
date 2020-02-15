@@ -58,8 +58,8 @@ pub const Server = struct {
         };
 
         while (try in_stream_splitter.next()) |headers_and_body| {
-            // const msg_headers = headers_and_body[0]; // so far no need for them
-            const msg_body = headers_and_body[1];
+            const msg_body = headers_and_body.body_part;
+            // std.debug.warn("\n\n>>>>>>{s}>>>>>>\n\n", .{msg_body});
             me.api.incoming(msg_body) catch |err| switch (err) {
                 error.OutOfMemory => return err,
                 else => std.debug.warn(
@@ -71,7 +71,7 @@ pub const Server = struct {
     }
 
     fn onOutputPrependHeader(mem: *std.mem.Allocator, me: *Server, raw_json_bytes_to_output: Str) void {
-        // std.debug.warn("\n\n>>>>>>>>>>>>>{}<<<<<<<<<<\n\n", .{raw_json_bytes_to_output});
+        // std.debug.warn("\n\n<<<<<<{s}<<<<<<\n\n", .{raw_json_bytes_to_output});
         callOnOutputHandlerWithHeaderPrependedOrCrash(mem, me.onOutput, raw_json_bytes_to_output);
     }
 };
