@@ -6,11 +6,11 @@ pub fn onDirsEncountered(srv: *Server, mem: *std.mem.Allocator, workspace_folder
 
     var dir_paths = try std.ArrayList(WorkerSrcFilesGatherer.Job).initCapacity(mem, 1 + workspace_folders.len);
     if (workspace_folder_uri.len > 0)
-        try dir_paths.append(.{ .full_path = std.mem.trimLeft(u8, workspace_folder_uri, "file://"), .event_kind = .dir_added });
+        try dir_paths.append(.{ .dir_or_file_absolute_path = zag.mem.trimPrefix(u8, workspace_folder_uri, "file://") });
     for (workspace_folders) |*workspace_folder|
-        try dir_paths.append(.{ .full_path = std.mem.trimLeft(u8, workspace_folder.uri, "file://"), .event_kind = .dir_added });
+        try dir_paths.append(.{ .dir_or_file_absolute_path = zag.mem.trimPrefix(u8, workspace_folder.uri, "file://") });
     for (more_workspace_folders) |*workspace_folder|
-        try dir_paths.append(.{ .full_path = std.mem.trimLeft(u8, workspace_folder.uri, "file://"), .event_kind = .dir_added });
+        try dir_paths.append(.{ .dir_or_file_absolute_path = zag.mem.trimPrefix(u8, workspace_folder.uri, "file://") });
     try zsess.workers.src_files_gatherer.base.enqueueJobs(dir_paths.toSliceConst());
 }
 
