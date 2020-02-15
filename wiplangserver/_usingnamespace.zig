@@ -8,3 +8,4 @@ pub usingnamespace @import("../../zigsess/zigsess.zig");
 
 pub usingnamespace @import("./basics.zig");
 pub usingnamespace @import("./src_file_events.zig");
+pub usingnamespace @import("./setup.zig");

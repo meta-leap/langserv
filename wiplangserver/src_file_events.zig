@@ -118,6 +118,6 @@ pub fn onInitRegisterFileWatcherAndProcessWorkspaceFolders(ctx: Server.Ctx(Initi
     );
 }
 
-pub fn loadSrcFileFromPath(mem: *std.mem.Allocator, src_file_abs_path: Str) !Str {
+pub fn loadSrcFileEitherFromFsOrFromLiveBufCache(mem: *std.mem.Allocator, src_file_abs_path: Str) !Str {
     return SrcFile.defaultLoadFromPath(mem, src_file_abs_path);
 }
