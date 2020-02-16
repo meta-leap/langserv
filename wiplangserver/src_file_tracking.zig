@@ -96,6 +96,13 @@ pub fn onFileBufEdited(ctx: Server.Ctx(DidChangeTextDocumentParams)) !void {
         const lock = src_files_owned_by_client.lock();
         defer lock.release();
 
+        try zsess.workers.src_files_gatherer.base.enqueueJobs(&[_]SrcFiles.EnsureTracked{
+            .{
+                .absolute_path = src_file_abs_path,
+                .force_refresh = true,
+            },
+        });
+
         if (src_files_owned_by_client.live_bufs.get(src_file_abs_path)) |cur_src| {
             if (ctx.value.contentChanges.len > 0) {
                 var buf_len: usize = cur_src.len;
@@ -133,12 +140,6 @@ pub fn onFileBufEdited(ctx: Server.Ctx(DidChangeTextDocumentParams)) !void {
                     _ = try src_files_owned_by_client.versions.put(src_file_id, new_version);
             };
     }
-    try zsess.workers.src_files_gatherer.base.enqueueJobs(&[_]SrcFiles.EnsureTracked{
-        .{
-            .absolute_path = src_file_abs_path,
-            .force_refresh = true,
-        },
-    });
 }
 
 pub fn onFileBufSaved(ctx: Server.Ctx(DidSaveTextDocumentParams)) !void {

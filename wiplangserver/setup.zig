@@ -9,6 +9,7 @@ pub fn setupCapabilitiesAndHandlers(srv: *Server) void {
     srv.cfg.capabilities.documentOnTypeFormattingProvider = .{ .firstTriggerCharacter = ";", .moreTriggerCharacter = &[2]Str{ "}", ";" } };
     srv.api.onRequest(.textDocument_formatting, onFormat);
     srv.api.onRequest(.textDocument_onTypeFormatting, onFormatOnType);
+    std.debug.warn("\nEDIT\n", .{});
 }
 
 fn onInitialized(ctx: Server.Ctx(InitializedParams)) !void {
@@ -24,7 +25,9 @@ fn onShutdown(ctx: Server.Ctx(void)) error{}!Result(void) {
 fn formatted(mem: *std.mem.Allocator, uri: Str) !Result(?[]TextEdit) {
     const src_file_absolute_path = lspUriToFilePath(uri);
     if (zsess.src_files.getByFullPath(src_file_absolute_path)) |src_file| {
-        if (try src_file.formatted(mem)) |formatted_src| ok: {
+        try src_file.refresh();
+        zsess.workers.src_files_refresher.base.cancelPendingEnqueuedJob(src_file.id);
+        if (try src_file.formatted(mem)) |formatted_src| {
             var edit = TextEdit{
                 .newText = formatted_src,
                 .range = .{ .start = .{ .line = 0, .character = 0 }, .end = .{ .line = std.math.maxInt(i32), .character = 0 } },
