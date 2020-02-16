@@ -91,8 +91,8 @@ pub const RenamePrep = union(enum) {
 };
 
 pub const DocumentSymbols = union(enum) {
-    flat: []const SymbolInformation,
-    hierarchy: []const DocumentSymbol,
+    flat: []SymbolInformation,
+    hierarchy: []DocumentSymbol,
 };
 
 pub const CommandOrAction = union(enum) {
