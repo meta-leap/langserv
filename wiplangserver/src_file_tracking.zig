@@ -46,17 +46,19 @@ fn onDirsEncountered(srv: *Server, mem: *std.mem.Allocator, workspace_folder_uri
 
     var dir_paths = try std.ArrayList(SrcFiles.EnsureTracked).initCapacity(mem, 1 + workspace_folders.len + more_workspace_folders.len);
     if (workspace_folder_uri.len > 0)
-        try dir_paths.append(.{ .absolute_path = lspUriToFilePath(workspace_folder_uri) });
+        try dir_paths.append(.{ .is_dir = true, .absolute_path = lspUriToFilePath(workspace_folder_uri) });
     for (workspace_folders) |*workspace_folder|
-        try dir_paths.append(.{ .absolute_path = lspUriToFilePath(workspace_folder.uri) });
+        try dir_paths.append(.{ .is_dir = true, .absolute_path = lspUriToFilePath(workspace_folder.uri) });
     for (more_workspace_folders) |*workspace_folder|
-        try dir_paths.append(.{ .absolute_path = lspUriToFilePath(workspace_folder.uri) });
+        try dir_paths.append(.{ .is_dir = true, .absolute_path = lspUriToFilePath(workspace_folder.uri) });
     try zsess.workers.src_files_gatherer.base.enqueueJobs(dir_paths.toSliceConst());
 }
 
 pub fn onFileBufOpened(ctx: Server.Ctx(DidOpenTextDocumentParams)) !void {
     const src_file_abs_path = lspUriToFilePath(ctx.value.textDocument.uri);
     const src_file_id = SrcFile.id(src_file_abs_path);
+    zsess.workers.src_files_refresh_intel.base.cancelPendingEnqueuedJob(src_file_id);
+    zsess.workers.src_files_reloader.base.cancelPendingEnqueuedJob(src_file_id);
     {
         const lock = src_files_owned_by_client.lock();
         defer lock.release();
@@ -75,6 +77,8 @@ pub fn onFileBufOpened(ctx: Server.Ctx(DidOpenTextDocumentParams)) !void {
 pub fn onFileClosed(ctx: Server.Ctx(DidCloseTextDocumentParams)) !void {
     const src_file_abs_path = lspUriToFilePath(ctx.value.textDocument.uri);
     const src_file_id = SrcFile.id(src_file_abs_path);
+    zsess.workers.src_files_refresh_intel.base.cancelPendingEnqueuedJob(src_file_id);
+    zsess.workers.src_files_reloader.base.cancelPendingEnqueuedJob(src_file_id);
     {
         const lock = src_files_owned_by_client.lock();
         defer lock.release();
@@ -90,17 +94,16 @@ pub fn onFileClosed(ctx: Server.Ctx(DidCloseTextDocumentParams)) !void {
 }
 
 pub fn onFileBufEdited(ctx: Server.Ctx(DidChangeTextDocumentParams)) !void {
-    const lock = src_files_owned_by_client.lock();
-    var should_reload = false;
     const src_file_abs_path = lspUriToFilePath(ctx.value.textDocument.TextDocumentIdentifier.uri);
+    const lock = src_files_owned_by_client.lock();
     defer {
         lock.release();
-        if (should_reload)
-            if (zsess.src_files.getByFullPath(src_file_abs_path)) |src_file|
-                src_file.reload() catch {};
+        if (zsess.src_files.getByFullPath(src_file_abs_path)) |src_file|
+            src_file.reload() catch {};
     }
     const src_file_id = SrcFile.id(src_file_abs_path);
-
+    zsess.workers.src_files_reloader.base.cancelPendingEnqueuedJob(src_file_id);
+    zsess.workers.src_files_refresh_intel.base.cancelPendingEnqueuedJob(src_file_id);
     if (src_files_owned_by_client.live_bufs.get(src_file_abs_path)) |cur_src| {
         if (ctx.value.contentChanges.len > 0) {
             var buf_len: usize = cur_src.len;
@@ -126,7 +129,6 @@ pub fn onFileBufEdited(ctx: Server.Ctx(DidChangeTextDocumentParams)) !void {
             }
             // std.debug.warn("\n\nNEWSRC:>>>>>{}<<<<<<<<\n\n", .{buf[0..buf_len]});
             try src_files_owned_by_client.live_bufs.set(src_file_abs_path, buf[0..buf_len]);
-            should_reload = true;
         }
     } else {
         src_files_owned_by_client.live_bufs.delete(src_file_abs_path);
@@ -142,15 +144,20 @@ pub fn onFileBufEdited(ctx: Server.Ctx(DidChangeTextDocumentParams)) !void {
 
 pub fn onFileBufSaved(ctx: Server.Ctx(DidSaveTextDocumentParams)) !void {
     const src_file_abs_path = lspUriToFilePath(ctx.value.textDocument.uri);
-    if (ctx.value.text) |src_bytes| {
+    const force_reload = (ctx.value.text != null);
+    if (force_reload) {
+        const src_file_id = SrcFile.id(src_file_abs_path);
+        zsess.workers.src_files_reloader.base.cancelPendingEnqueuedJob(src_file_id);
+        zsess.workers.src_files_refresh_intel.base.cancelPendingEnqueuedJob(src_file_id);
+
         const lock = src_files_owned_by_client.lock();
         defer lock.release();
-        try src_files_owned_by_client.live_bufs.set(src_file_abs_path, src_bytes);
+        try src_files_owned_by_client.live_bufs.set(src_file_abs_path, ctx.value.text.?);
     }
     try zsess.workers.src_files_gatherer.base.enqueueJobs(&[_]SrcFiles.EnsureTracked{
         .{
             .absolute_path = src_file_abs_path,
-            .force_reload = (ctx.value.text != null),
+            .force_reload = force_reload,
         },
     });
 }
@@ -163,6 +170,11 @@ pub fn onFileEvents(ctx: Server.Ctx(DidChangeWatchedFilesParams)) !void {
             defer lock.release();
             break :check (null != src_files_owned_by_client.live_bufs.get(src_file_abs_path));
         };
+        if (!currently_owned_by_client) {
+            const src_file_id = SrcFile.id(src_file_abs_path);
+            zsess.workers.src_files_reloader.base.cancelPendingEnqueuedJob(src_file_id);
+            zsess.workers.src_files_refresh_intel.base.cancelPendingEnqueuedJob(src_file_id);
+        }
         try zsess.workers.src_files_gatherer.base.enqueueJobs(&[_]SrcFiles.EnsureTracked{
             .{ .absolute_path = src_file_abs_path, .force_reload = !currently_owned_by_client },
         });
