@@ -67,7 +67,7 @@ pub fn onFileBufOpened(ctx: Server.Ctx(DidOpenTextDocumentParams)) !void {
     try zsess.workers.src_files_gatherer.base.enqueueJobs(&[_]SrcFiles.EnsureTracked{
         .{
             .absolute_path = src_file_abs_path,
-            .force_refresh = true,
+            .force_refresh = false,
         },
     });
 }
@@ -84,7 +84,7 @@ pub fn onFileClosed(ctx: Server.Ctx(DidCloseTextDocumentParams)) !void {
     try zsess.workers.src_files_gatherer.base.enqueueJobs(&[_]SrcFiles.EnsureTracked{
         .{
             .absolute_path = src_file_abs_path,
-            .force_refresh = true,
+            .force_refresh = false,
         },
     });
 }
