@@ -90,56 +90,54 @@ pub fn onFileClosed(ctx: Server.Ctx(DidCloseTextDocumentParams)) !void {
 }
 
 pub fn onFileBufEdited(ctx: Server.Ctx(DidChangeTextDocumentParams)) !void {
+    const lock = src_files_owned_by_client.lock();
+    var should_refresh = false;
     const src_file_abs_path = lspUriToFilePath(ctx.value.textDocument.TextDocumentIdentifier.uri);
-    const src_file_id = SrcFile.id(src_file_abs_path);
-    buf_update: {
-        const lock = src_files_owned_by_client.lock();
-        defer lock.release();
-
-        try zsess.workers.src_files_gatherer.base.enqueueJobs(&[_]SrcFiles.EnsureTracked{
-            .{
-                .absolute_path = src_file_abs_path,
-                .force_refresh = true,
-            },
-        });
-
-        if (src_files_owned_by_client.live_bufs.get(src_file_abs_path)) |cur_src| {
-            if (ctx.value.contentChanges.len > 0) {
-                var buf_len: usize = cur_src.len;
-                var capacity = buf_len;
-                for (ctx.value.contentChanges) |*change|
-                    capacity += change.text.len;
-                var buf = try ctx.mem.alloc(u8, capacity);
-                std.mem.copy(u8, buf[0..buf_len], cur_src);
-                for (ctx.value.contentChanges) |*change| {
-                    const start_end = if (change.range) |range|
-                        ((range.sliceBounds(buf[0..buf_len]) catch |err| {
-                            src_files_owned_by_client.live_bufs.delete(src_file_abs_path);
-                            _ = src_files_owned_by_client.versions.remove(src_file_id);
-                            break :buf_update;
-                        }) orelse {
-                            src_files_owned_by_client.live_bufs.delete(src_file_abs_path);
-                            _ = src_files_owned_by_client.versions.remove(src_file_id);
-                            break :buf_update;
-                        })
-                    else
-                        [2]usize{ 0, buf_len };
-                    buf_len = zag.mem.edit(buf, buf_len, start_end[0], start_end[1], change.text);
-                }
-                // std.debug.warn("\n\nNEWSRC:>>>>>{}<<<<<<<<\n\n", .{buf[0..buf_len]});
-                try src_files_owned_by_client.live_bufs.set(src_file_abs_path, buf[0..buf_len]);
-            }
-        } else {
-            src_files_owned_by_client.live_bufs.delete(src_file_abs_path);
-            _ = src_files_owned_by_client.versions.remove(src_file_id);
-            break :buf_update;
-        }
-        if (ctx.value.textDocument.version) |new_version|
-            if (src_files_owned_by_client.versions.get(src_file_id)) |old_version| {
-                if (old_version.value != null) // improves correctness in case of buggy / non-spec-conformant clients, see onFileBufOpened
-                    _ = try src_files_owned_by_client.versions.put(src_file_id, new_version);
-            };
+    defer {
+        lock.release();
+        if (should_refresh)
+            if (zsess.src_files.getByFullPath(src_file_abs_path)) |src_file|
+                src_file.refresh() catch {};
     }
+    const src_file_id = SrcFile.id(src_file_abs_path);
+
+    if (src_files_owned_by_client.live_bufs.get(src_file_abs_path)) |cur_src| {
+        if (ctx.value.contentChanges.len > 0) {
+            var buf_len: usize = cur_src.len;
+            var capacity = buf_len;
+            for (ctx.value.contentChanges) |*change|
+                capacity += change.text.len;
+            var buf = try ctx.mem.alloc(u8, capacity);
+            std.mem.copy(u8, buf[0..buf_len], cur_src);
+            for (ctx.value.contentChanges) |*change| {
+                const start_end = if (change.range) |range|
+                    ((range.sliceBounds(buf[0..buf_len]) catch |err| {
+                        src_files_owned_by_client.live_bufs.delete(src_file_abs_path);
+                        _ = src_files_owned_by_client.versions.remove(src_file_id);
+                        return;
+                    }) orelse {
+                        src_files_owned_by_client.live_bufs.delete(src_file_abs_path);
+                        _ = src_files_owned_by_client.versions.remove(src_file_id);
+                        return;
+                    })
+                else
+                    [2]usize{ 0, buf_len };
+                buf_len = zag.mem.edit(buf, buf_len, start_end[0], start_end[1], change.text);
+            }
+            // std.debug.warn("\n\nNEWSRC:>>>>>{}<<<<<<<<\n\n", .{buf[0..buf_len]});
+            try src_files_owned_by_client.live_bufs.set(src_file_abs_path, buf[0..buf_len]);
+            should_refresh = true;
+        }
+    } else {
+        src_files_owned_by_client.live_bufs.delete(src_file_abs_path);
+        _ = src_files_owned_by_client.versions.remove(src_file_id);
+        return;
+    }
+    if (ctx.value.textDocument.version) |new_version|
+        if (src_files_owned_by_client.versions.get(src_file_id)) |old_version| {
+            if (old_version.value != null) // improves correctness in case of buggy / non-spec-conformant clients, see onFileBufOpened
+                _ = try src_files_owned_by_client.versions.put(src_file_id, new_version);
+        };
 }
 
 pub fn onFileBufSaved(ctx: Server.Ctx(DidSaveTextDocumentParams)) !void {
