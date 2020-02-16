@@ -51,7 +51,7 @@ fn onDirsEncountered(srv: *Server, mem: *std.mem.Allocator, workspace_folder_uri
         try dir_paths.append(.{ .is_dir = true, .absolute_path = lspUriToFilePath(workspace_folder.uri) });
     for (more_workspace_folders) |*workspace_folder|
         try dir_paths.append(.{ .is_dir = true, .absolute_path = lspUriToFilePath(workspace_folder.uri) });
-    try zsess.workers.src_files_gatherer.base.enqueueJobs(dir_paths.toSliceConst());
+    try zsess.workers.src_files_gatherer.base.appendJobs(dir_paths.toSliceConst());
 }
 
 pub fn onFileBufOpened(ctx: Server.Ctx(DidOpenTextDocumentParams)) !void {
@@ -66,7 +66,7 @@ pub fn onFileBufOpened(ctx: Server.Ctx(DidOpenTextDocumentParams)) !void {
         if (try src_files_owned_by_client.versions.put(src_file_id, ctx.value.textDocument.version)) |existed_already|
             _ = try src_files_owned_by_client.versions.put(src_file_id, null);
     }
-    try zsess.workers.src_files_gatherer.base.enqueueJobs(&[_]SrcFiles.EnsureTracked{
+    try zsess.workers.src_files_gatherer.base.prependJobs(&[_]SrcFiles.EnsureTracked{
         .{
             .absolute_path = src_file_abs_path,
             .force_reload = true,
@@ -85,7 +85,7 @@ pub fn onFileClosed(ctx: Server.Ctx(DidCloseTextDocumentParams)) !void {
         src_files_owned_by_client.live_bufs.delete(src_file_abs_path);
         _ = src_files_owned_by_client.versions.remove(src_file_id);
     }
-    try zsess.workers.src_files_gatherer.base.enqueueJobs(&[_]SrcFiles.EnsureTracked{
+    try zsess.workers.src_files_gatherer.base.appendJobs(&[_]SrcFiles.EnsureTracked{
         .{
             .absolute_path = src_file_abs_path,
             .force_reload = true,
@@ -154,7 +154,7 @@ pub fn onFileBufSaved(ctx: Server.Ctx(DidSaveTextDocumentParams)) !void {
         defer lock.release();
         try src_files_owned_by_client.live_bufs.set(src_file_abs_path, ctx.value.text.?);
     }
-    try zsess.workers.src_files_gatherer.base.enqueueJobs(&[_]SrcFiles.EnsureTracked{
+    try zsess.workers.src_files_gatherer.base.appendJobs(&[_]SrcFiles.EnsureTracked{
         .{
             .absolute_path = src_file_abs_path,
             .force_reload = force_reload,
@@ -175,7 +175,7 @@ pub fn onFileEvents(ctx: Server.Ctx(DidChangeWatchedFilesParams)) !void {
             zsess.workers.src_files_reloader.base.cancelPendingEnqueuedJob(src_file_id);
             zsess.workers.src_files_refresh_intel.base.cancelPendingEnqueuedJob(src_file_id);
         }
-        try zsess.workers.src_files_gatherer.base.enqueueJobs(&[_]SrcFiles.EnsureTracked{
+        try zsess.workers.src_files_gatherer.base.appendJobs(&[_]SrcFiles.EnsureTracked{
             .{ .absolute_path = src_file_abs_path, .force_reload = !currently_owned_by_client },
         });
     }
