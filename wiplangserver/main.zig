@@ -21,7 +21,7 @@ pub fn main() !u8 {
 
     var server = Server{ .onOutput = stdoutWrite };
     server.cfg.serverInfo.?.name = "wiplangserver";
-    setupCapabilitiesAndHandlers(&server);
+    try setupCapabilitiesAndHandlers(&server);
     return if (server.forever(&std.io.BufferedInStream(std.os.ReadError).
         init(&std.io.getStdIn().inStream().stream).stream)) 0 else |err| 1;
 }

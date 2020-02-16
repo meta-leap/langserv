@@ -67,7 +67,7 @@ pub fn onFileBufOpened(ctx: Server.Ctx(DidOpenTextDocumentParams)) !void {
     try zsess.workers.src_files_gatherer.base.enqueueJobs(&[_]SrcFiles.EnsureTracked{
         .{
             .absolute_path = src_file_abs_path,
-            .force_refresh = false,
+            .force_reload = true,
         },
     });
 }
@@ -84,20 +84,20 @@ pub fn onFileClosed(ctx: Server.Ctx(DidCloseTextDocumentParams)) !void {
     try zsess.workers.src_files_gatherer.base.enqueueJobs(&[_]SrcFiles.EnsureTracked{
         .{
             .absolute_path = src_file_abs_path,
-            .force_refresh = false,
+            .force_reload = true,
         },
     });
 }
 
 pub fn onFileBufEdited(ctx: Server.Ctx(DidChangeTextDocumentParams)) !void {
     const lock = src_files_owned_by_client.lock();
-    var should_refresh = false;
+    var should_reload = false;
     const src_file_abs_path = lspUriToFilePath(ctx.value.textDocument.TextDocumentIdentifier.uri);
     defer {
         lock.release();
-        if (should_refresh)
+        if (should_reload)
             if (zsess.src_files.getByFullPath(src_file_abs_path)) |src_file|
-                src_file.refresh() catch {};
+                src_file.reload() catch {};
     }
     const src_file_id = SrcFile.id(src_file_abs_path);
 
@@ -126,7 +126,7 @@ pub fn onFileBufEdited(ctx: Server.Ctx(DidChangeTextDocumentParams)) !void {
             }
             // std.debug.warn("\n\nNEWSRC:>>>>>{}<<<<<<<<\n\n", .{buf[0..buf_len]});
             try src_files_owned_by_client.live_bufs.set(src_file_abs_path, buf[0..buf_len]);
-            should_refresh = true;
+            should_reload = true;
         }
     } else {
         src_files_owned_by_client.live_bufs.delete(src_file_abs_path);
@@ -150,7 +150,7 @@ pub fn onFileBufSaved(ctx: Server.Ctx(DidSaveTextDocumentParams)) !void {
     try zsess.workers.src_files_gatherer.base.enqueueJobs(&[_]SrcFiles.EnsureTracked{
         .{
             .absolute_path = src_file_abs_path,
-            .force_refresh = (ctx.value.text != null),
+            .force_reload = (ctx.value.text != null),
         },
     });
 }
@@ -164,7 +164,7 @@ pub fn onFileEvents(ctx: Server.Ctx(DidChangeWatchedFilesParams)) !void {
             break :check (null != src_files_owned_by_client.live_bufs.get(src_file_abs_path));
         };
         try zsess.workers.src_files_gatherer.base.enqueueJobs(&[_]SrcFiles.EnsureTracked{
-            .{ .absolute_path = src_file_abs_path, .force_refresh = !currently_owned_by_client },
+            .{ .absolute_path = src_file_abs_path, .force_reload = !currently_owned_by_client },
         });
     }
 }
