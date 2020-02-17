@@ -8,7 +8,7 @@ pub inline fn lspUriToFilePath(uri: Str) Str {
     return zag.mem.trimPrefix(u8, uri, "file://");
 }
 
-// could later prepend timestamps etc.
+// could later prepend timestamps, or turn conditional on std.built.mode, etc.
 pub inline fn logToStderr(comptime fmt: Str, args: var) void {
     std.debug.warn(fmt, args);
 }

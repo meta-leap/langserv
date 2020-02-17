@@ -16,7 +16,7 @@ pub fn setupCapabilitiesAndHandlers(srv: *Server) void {
 
     srv.api.onNotify(.initialized, onInitialized);
     srv.api.onRequest(.shutdown, onShutdown);
-    setupWorkspaceFolderAndFileRelatedCapabilitiesAndHandlers(srv);
+    setupSrcFileAndWorkFolderRelatedCapabilitiesAndHandlers(srv);
 
     // FORMATTING
     srv.cfg.capabilities.documentFormattingProvider = .{ .enabled = true };
