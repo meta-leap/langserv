@@ -11,14 +11,15 @@ pub fn onHover(ctx: Server.Ctx(HoverParams)) !Result(?Hover) {
 
 pub fn onSymbolsForDocument(ctx: Server.Ctx(DocumentSymbolParams)) !Result(?DocumentSymbols) {
     const src_file_abs_path = lspUriToFilePath(ctx.value.textDocument.uri);
+
+    logToStderr("SYMS_FOR_{}\tt:{} i:{}\n", .{ src_file_abs_path, zsess.src_files.getByFullPath(src_file_abs_path) != null, zsess.src_intel.fileSpecificIntel(src_file_abs_path) != null });
+
     var result = std.ArrayList(DocumentSymbol).init(ctx.mem);
 
     if (zsess.src_intel.fileSpecificIntel(src_file_abs_path)) |intel| {
-        logToStderr("YAY\t{}\n", .{intel.named_decls.len});
         result = try std.ArrayList(DocumentSymbol).initCapacity(ctx.mem, intel.named_decls.len);
         for (intel.named_decls) |*named_decl|
             if (try Range.initFromSlice(intel.src, named_decl.pos.full_decl.start, named_decl.pos.full_decl.end)) |range_full| {
-                logToStderr("RAY 1\t{}\n", .{range_full});
                 var range_brief_maybe: ?Range = null;
                 var range_name_maybe: ?Range = null;
                 if (named_decl.pos.name) |pos_name| {
@@ -27,7 +28,6 @@ pub fn onSymbolsForDocument(ctx: Server.Ctx(DocumentSymbolParams)) !Result(?Docu
                 if (named_decl.pos.brief) |pos_brief| {
                     range_brief_maybe = try Range.initFromSlice(intel.src, pos_brief.start, pos_brief.end);
                 }
-                logToStderr("RAY 2\t{}\n", .{named_decl.pos});
                 var sym = DocumentSymbol{
                     .kind = .Class,
                     .name = if (range_name_maybe) |range_name|
@@ -42,9 +42,7 @@ pub fn onSymbolsForDocument(ctx: Server.Ctx(DocumentSymbolParams)) !Result(?Docu
                     .range = range_full,
                     .children = &[_]DocumentSymbol{},
                 };
-                logToStderr("RAY 3\t{}\n", .{sym});
                 try result.append(sym);
-                logToStderr("RAY 4\t{}\n", .{result.len});
             };
     }
 

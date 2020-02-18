@@ -3,6 +3,7 @@ usingnamespace @import("./_usingnamespace.zig");
 const sync_kind = TextDocumentSyncKind.Full;
 
 pub var src_files_watcher_active = false;
+var had_file_bufs_opened_event_yet = false;
 
 pub var src_files_owned_by_client: struct {
     live_bufs: std.BufMap,
@@ -60,6 +61,7 @@ fn onDirsEncountered(srv: *Server, mem: *std.mem.Allocator, workspace_folder_uri
 
 pub fn onFileBufOpened(ctx: Server.Ctx(DidOpenTextDocumentParams)) !void {
     const src_file_abs_path = lspUriToFilePath(ctx.value.textDocument.uri);
+    logToStderr("OPEN\t{}\n", .{src_file_abs_path});
     const src_file_id = SrcFile.id(src_file_abs_path);
     zsess.workers.src_files_refresh_intel.base.cancelPendingEnqueuedJob(src_file_id);
     zsess.workers.src_files_reloader.base.cancelPendingEnqueuedJob(src_file_id);
@@ -70,12 +72,19 @@ pub fn onFileBufOpened(ctx: Server.Ctx(DidOpenTextDocumentParams)) !void {
         if (try src_files_owned_by_client.versions.put(src_file_id, ctx.value.textDocument.version)) |existed_already|
             _ = try src_files_owned_by_client.versions.put(src_file_id, null);
     }
-    try zsess.workers.src_files_gatherer.base.prependJobs(&[_]SrcFiles.EnsureTracked{
+
+    var todo = &[_]SrcFiles.EnsureTracked{
         .{
             .absolute_path = src_file_abs_path,
             .force_reload = true,
         },
-    });
+    };
+    if (had_file_bufs_opened_event_yet)
+        try zsess.workers.src_files_gatherer.base.prependJobs(todo)
+    else { // fast-track the very first one as it's the currently-opened buffer on session start
+        try zsess.src_files.ensureFilesTracked(@fieldParentPtr(std.heap.ArenaAllocator, "allocator", ctx.mem), todo);
+        had_file_bufs_opened_event_yet = true;
+    }
 }
 
 pub fn onFileClosed(ctx: Server.Ctx(DidCloseTextDocumentParams)) !void {
