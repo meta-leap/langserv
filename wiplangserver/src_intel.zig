@@ -2,49 +2,66 @@ usingnamespace @import("./_usingnamespace.zig");
 
 pub fn onHover(ctx: Server.Ctx(HoverParams)) !Result(?Hover) {
     const src_file_abs_path = lspUriToFilePath(ctx.value.TextDocumentPositionParams.textDocument.uri);
-
     const markdown = try std.fmt.allocPrint(ctx.mem, "Mock hover for:\n\n```zig\n{}\n```\n\n", .{ctx.
         value.TextDocumentPositionParams.position});
-
     return Result(?Hover){ .ok = Hover{ .contents = MarkupContent{ .value = markdown } } };
+}
+
+fn srcFileSymbols(comptime T: type, mem: *std.heap.ArenaAllocator, src_file_abs_path: Str) ![]T {
+    const hierarchical = (T == DocumentSymbol);
+    const intel = (try zsess.src_intel.fileSpecific(src_file_abs_path, mem)) orelse
+        return &[_]T{};
+    var result = try std.ArrayList(T).initCapacity(&mem.allocator, intel.named_decls.len);
+    for (intel.named_decls) |*named_decl| {
+        const range_full = (try Range.initFromSlice(intel.src, named_decl.pos.full_decl.start, named_decl.pos.full_decl.end)) orelse continue;
+        var range_brief_maybe: ?Range = null;
+        var range_name_maybe: ?Range = null;
+        if (named_decl.pos.name) |pos_name|
+            range_name_maybe = try Range.initFromSlice(intel.src, pos_name.start, pos_name.end);
+        if (named_decl.pos.brief) |pos_brief|
+            range_brief_maybe = try Range.initFromSlice(intel.src, pos_brief.start, pos_brief.end);
+
+        var sym_name = if (range_name_maybe) |range_name|
+            (try range_name.sliceConst(intel.src)) orelse @tagName(named_decl.info)
+        else
+            @tagName(named_decl.info);
+        var sym_kind = SymbolKind.Class;
+        var sym = if (hierarchical)
+            T{
+                .kind = sym_kind,
+                .name = sym_name,
+                .detail = if (range_brief_maybe) |range_brief|
+                    (try range_brief.sliceConst(intel.src)) orelse @tagName(named_decl.info)
+                else
+                    @tagName(named_decl.info),
+                .selectionRange = range_brief_maybe orelse range_full,
+                .range = range_full,
+                .children = &[_]T{},
+            }
+        else
+            T{
+                .name = sym_name,
+                .kind = sym_kind,
+                .containerName = "containerName",
+                .location = .{
+                    .uri = try std.fmt.allocPrint(&mem.allocator, "file://{}", .{src_file_abs_path}),
+                    .range = range_full,
+                },
+            };
+        try result.append(sym);
+    }
+    return result.toSlice();
 }
 
 pub fn onSymbolsForDocument(ctx: Server.Ctx(DocumentSymbolParams)) !Result(?DocumentSymbols) {
     const src_file_abs_path = lspUriToFilePath(ctx.value.textDocument.uri);
-
-    var result = std.ArrayList(DocumentSymbol).init(ctx.mem);
-
-    if (try zsess.src_intel.fileSpecificIntel(src_file_abs_path, ctx.memArena())) |intel| {
-        result = try std.ArrayList(DocumentSymbol).initCapacity(ctx.mem, intel.named_decls.len);
-        for (intel.named_decls) |*named_decl|
-            if (try Range.initFromSlice(intel.src, named_decl.pos.full_decl.start, named_decl.pos.full_decl.end)) |range_full| {
-                var range_brief_maybe: ?Range = null;
-                var range_name_maybe: ?Range = null;
-                if (named_decl.pos.name) |pos_name| {
-                    range_name_maybe = try Range.initFromSlice(intel.src, pos_name.start, pos_name.end);
-                }
-                if (named_decl.pos.brief) |pos_brief| {
-                    range_brief_maybe = try Range.initFromSlice(intel.src, pos_brief.start, pos_brief.end);
-                }
-                var sym = DocumentSymbol{
-                    .kind = .Class,
-                    .name = if (range_name_maybe) |range_name|
-                        (try range_name.sliceConst(intel.src)) orelse @tagName(named_decl.info)
-                    else
-                        @tagName(named_decl.info),
-                    .detail = if (range_brief_maybe) |range_brief|
-                        (try range_brief.sliceConst(intel.src)) orelse @tagName(named_decl.info)
-                    else
-                        @tagName(named_decl.info),
-                    .selectionRange = range_brief_maybe orelse range_full,
-                    .range = range_full,
-                    .children = &[_]DocumentSymbol{},
-                };
-                try result.append(sym);
-            };
-    }
-
-    return Result(?DocumentSymbols){ .ok = .{ .hierarchy = result.toSlice() } };
+    const hierarchical = ctx.inst.initialized.?.capabilities.textDocument.?.documentSymbol.?.hierarchicalDocumentSymbolSupport orelse false;
+    return Result(?DocumentSymbols){
+        .ok = if (hierarchical)
+            .{ .hierarchy = try srcFileSymbols(DocumentSymbol, ctx.memArena(), src_file_abs_path) }
+        else
+            .{ .flat = try srcFileSymbols(SymbolInformation, ctx.memArena(), src_file_abs_path) },
+    };
 }
 
 pub fn onSymbolsForWorkspace(ctx: Server.Ctx(WorkspaceSymbolParams)) !Result(?[]SymbolInformation) {

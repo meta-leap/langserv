@@ -61,7 +61,6 @@ fn onDirsEncountered(srv: *Server, mem: *std.mem.Allocator, workspace_folder_uri
 
 pub fn onFileBufOpened(ctx: Server.Ctx(DidOpenTextDocumentParams)) !void {
     const src_file_abs_path = lspUriToFilePath(ctx.value.textDocument.uri);
-    logToStderr("OPEN\t{}\n", .{src_file_abs_path});
     const src_file_id = SrcFile.id(src_file_abs_path);
     zsess.workers.src_files_refresh_intel.base.cancelPendingEnqueuedJob(src_file_id);
     zsess.workers.src_files_reloader.base.cancelPendingEnqueuedJob(src_file_id);
