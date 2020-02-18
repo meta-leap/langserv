@@ -68,8 +68,9 @@ pub fn onFileBufOpened(ctx: Server.Ctx(DidOpenTextDocumentParams)) !void {
         const lock = src_files_owned_by_client.lock();
         defer lock.release();
         try src_files_owned_by_client.live_bufs.set(src_file_abs_path, ctx.value.textDocument.text);
-        if (try src_files_owned_by_client.versions.put(src_file_id, ctx.value.textDocument.version)) |existed_already|
-            _ = try src_files_owned_by_client.versions.put(src_file_id, null);
+        if (sync_kind == .Incremental)
+            if (try src_files_owned_by_client.versions.put(src_file_id, ctx.value.textDocument.version)) |existed_already|
+                _ = try src_files_owned_by_client.versions.put(src_file_id, null);
     }
 
     var todo = &[_]SrcFiles.EnsureTracked{
@@ -95,7 +96,8 @@ pub fn onFileClosed(ctx: Server.Ctx(DidCloseTextDocumentParams)) !void {
         const lock = src_files_owned_by_client.lock();
         defer lock.release();
         src_files_owned_by_client.live_bufs.delete(src_file_abs_path);
-        _ = src_files_owned_by_client.versions.remove(src_file_id);
+        if (sync_kind == .Incremental)
+            _ = src_files_owned_by_client.versions.remove(src_file_id);
     }
     try zsess.workers.src_files_gatherer.base.prependJobs(&[_]SrcFiles.EnsureTracked{
         .{
@@ -154,35 +156,39 @@ pub fn onFileBufEdited(ctx: Server.Ctx(DidChangeTextDocumentParams)) !void {
         } else
             unreachable;
 
-        var versions_botched = (sync_kind != .Full);
-        if (ctx.value.textDocument.version) |new_version|
-            if (src_files_owned_by_client.versions.getValue(src_file_id)) |maybe_old_version|
-                if (maybe_old_version) |old_version| {
-                    if (sync_kind == .Full or new_version == old_version + 1) {
-                        versions_botched = false;
-                        _ = try src_files_owned_by_client.versions.put(src_file_id, new_version);
-                    }
-                };
+        var versions_botched = (sync_kind == .Incremental);
+        if (versions_botched)
+            if (ctx.value.textDocument.version) |new_version|
+                if (src_files_owned_by_client.versions.getValue(src_file_id)) |maybe_old_version|
+                    if (maybe_old_version) |old_version| {
+                        if (new_version == old_version + 1) {
+                            versions_botched = false;
+                            _ = try src_files_owned_by_client.versions.put(src_file_id, new_version);
+                        }
+                    };
         if (versions_botched)
             drop_from_live_mode = true;
     }
     if (drop_from_live_mode) {
         src_files_owned_by_client.live_bufs.delete(src_file_abs_path);
-        _ = src_files_owned_by_client.versions.remove(src_file_id);
+        if (sync_kind == .Incremental)
+            _ = src_files_owned_by_client.versions.remove(src_file_id);
         try ctx.inst.api.notify(.window_showMessage, ShowMessageParams{
             .@"type" = .Warning,
-            .message = try std.fmt.allocPrint(ctx.mem, "No longer in live mode for {s}. Until re-opening, all intel will be from the on-disk file. Please report to github.com/meta-leap/langserv with details about your LSP client.", .{src_file_abs_path}),
+            .message = try std.fmt.allocPrint(ctx.mem, "No longer in live mode for {s}. Until re-opening, all intel will be from the on-disk file. Please report to github.com/meta-leap/langserv with details about your LSP client '{}'.", .{ src_file_abs_path, ctx.inst.initialized.?.clientInfo.?.name }),
         });
     }
 }
 
 pub fn onFileBufSaved(ctx: Server.Ctx(DidSaveTextDocumentParams)) !void {
     const src_file_abs_path = lspUriToFilePath(ctx.value.textDocument.uri);
-    if (ctx.value.text) |new_src| {
-        const src_file_id = SrcFile.id(src_file_abs_path);
+    const force_reload = !src_files_watcher_active;
+    const src_file_id = SrcFile.id(src_file_abs_path);
+    if (force_reload) {
         zsess.workers.src_files_reloader.base.cancelPendingEnqueuedJob(src_file_id);
         zsess.workers.src_files_refresh_intel.base.cancelPendingEnqueuedJob(src_file_id);
-
+    }
+    if (ctx.value.text) |new_src| {
         const lock = src_files_owned_by_client.lock();
         defer lock.release();
         if (src_files_owned_by_client.live_bufs.get(src_file_abs_path)) |_|
@@ -191,7 +197,7 @@ pub fn onFileBufSaved(ctx: Server.Ctx(DidSaveTextDocumentParams)) !void {
     try zsess.workers.src_files_gatherer.base.prependJobs(&[_]SrcFiles.EnsureTracked{
         .{
             .absolute_path = src_file_abs_path,
-            .force_reload = !src_files_watcher_active,
+            .force_reload = force_reload,
         },
     });
 }
