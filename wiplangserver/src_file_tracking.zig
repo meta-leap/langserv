@@ -115,7 +115,7 @@ pub fn onFileBufEdited(ctx: Server.Ctx(DidChangeTextDocumentParams)) !void {
     defer {
         lock.release();
         if (zsess.src_files.getByFullPath(src_file_abs_path)) |src_file| {
-            src_file.reload() catch {};
+            src_file.reload(ctx.memArena()) catch {};
             zsess.workers.src_files_refresh_intel.base.prependJobs(&[_]u64{src_file.id}) catch {};
         }
     }
@@ -197,22 +197,27 @@ pub fn onFileBufSaved(ctx: Server.Ctx(DidSaveTextDocumentParams)) !void {
 }
 
 pub fn onFileEvents(ctx: Server.Ctx(DidChangeWatchedFilesParams)) !void {
+    const lock = src_files_owned_by_client.lock();
+    defer lock.release();
+    var jobs = try std.ArrayList(SrcFiles.EnsureTracked).initCapacity(ctx.mem, ctx.value.changes.len);
+    var gone = try std.ArrayList(Str).initCapacity(ctx.mem, ctx.value.changes.len);
     for (ctx.value.changes) |file_event| {
         const src_file_abs_path = lspUriToFilePath(file_event.uri);
-        const currently_owned_by_client = check: {
-            const lock = src_files_owned_by_client.lock();
-            defer lock.release();
-            break :check (null != src_files_owned_by_client.live_bufs.get(src_file_abs_path));
-        };
+        const currently_owned_by_client = (null != src_files_owned_by_client.live_bufs.get(src_file_abs_path));
         if (!currently_owned_by_client) {
             const src_file_id = SrcFile.id(src_file_abs_path);
             zsess.workers.src_files_reloader.base.cancelPendingEnqueuedJob(src_file_id);
             zsess.workers.src_files_refresh_intel.base.cancelPendingEnqueuedJob(src_file_id);
         }
-        try zsess.workers.src_files_gatherer.base.appendJobs(&[_]SrcFiles.EnsureTracked{
-            .{ .absolute_path = src_file_abs_path, .force_reload = !currently_owned_by_client },
-        });
+        if (file_event.@"type" == .Deleted)
+            try gone.append(src_file_abs_path)
+        else
+            try jobs.append(.{ .absolute_path = src_file_abs_path, .force_reload = !currently_owned_by_client });
     }
+    if (jobs.len != 0)
+        try zsess.workers.src_files_gatherer.base.appendJobs(jobs.toSlice());
+    if (gone.len != 0)
+        try zsess.src_files.ensureFilesGone(ctx.memArena(), gone.toSliceConst());
 }
 
 pub fn onInitRegisterFileWatcherAndProcessWorkspaceFolders(ctx: Server.Ctx(InitializedParams)) !void {
