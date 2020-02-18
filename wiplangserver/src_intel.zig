@@ -11,7 +11,7 @@ fn srcFileSymbols(comptime T: type, mem: *std.heap.ArenaAllocator, src_file_abs_
     const hierarchical = (T == DocumentSymbol);
     const intel = (try zsess.src_intel.fileSpecific(src_file_abs_path, mem)) orelse
         return &[_]T{};
-    var result = try std.ArrayList(T).initCapacity(&mem.allocator, intel.named_decls.len);
+    var results = try std.ArrayList(T).initCapacity(&mem.allocator, intel.named_decls.len);
     for (intel.named_decls) |*named_decl| {
         const range_full = (try Range.initFromSlice(intel.src, named_decl.pos.full_decl.start, named_decl.pos.full_decl.end)) orelse continue;
         var range_brief_maybe: ?Range = null;
@@ -48,9 +48,9 @@ fn srcFileSymbols(comptime T: type, mem: *std.heap.ArenaAllocator, src_file_abs_
                     .range = range_full,
                 },
             };
-        try result.append(sym);
+        try results.append(sym);
     }
-    return result.toSlice();
+    return results.toSlice();
 }
 
 pub fn onSymbolsForDocument(ctx: Server.Ctx(DocumentSymbolParams)) !Result(?DocumentSymbols) {
@@ -65,22 +65,15 @@ pub fn onSymbolsForDocument(ctx: Server.Ctx(DocumentSymbolParams)) !Result(?Docu
 }
 
 pub fn onSymbolsForWorkspace(ctx: Server.Ctx(WorkspaceSymbolParams)) !Result(?[]SymbolInformation) {
-    var symbols = try std.ArrayList(SymbolInformation).initCapacity(ctx.mem, 2048);
-
-    comptime var i: usize = 0;
-    inline for (@typeInfo(SymbolKind).Enum.fields) |*enum_field| {
-        try symbols.append(SymbolInformation{
-            .name = enum_field.name,
-            .containerName = @typeName(SymbolKind),
-            .kind = @intToEnum(SymbolKind, enum_field.value),
-            .location = .{
-                .uri = "file:///home/_/c/z/langserv/src/lsp_server.zig",
-                .range = Range{ .start = .{ .character = 0, .line = i }, .end = .{ .character = 22, .line = i } },
-            },
-        });
-        i += 1;
+    var symbols = try std.ArrayList(SymbolInformation).initCapacity(ctx.mem, 16 * 1024);
+    var src_file_abs_paths = try zsess.src_files.allCurrentlyTrackedSrcFileAbsPaths(ctx.mem);
+    for (src_file_abs_paths) |src_file_abs_path| {
+        var syms = try srcFileSymbols(SymbolInformation, ctx.memArena(), src_file_abs_path);
+        for (syms) |_, i|
+            syms[i].containerName = std.fs.path.dirname(src_file_abs_path) orelse ".";
+        try symbols.appendSlice(syms);
     }
-
+    logToStderr("WSSYMS {}", .{symbols.len});
     return Result(?[]SymbolInformation){ .ok = symbols.toSlice() };
 }
 
