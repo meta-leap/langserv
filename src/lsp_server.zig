@@ -57,6 +57,7 @@ pub const Server = struct {
             .perma_buf = &(try std.ArrayList(u8).initCapacity(&me.mem_forever.?.allocator, 128 * 1024)),
         };
 
+        // const start = std.time.milliTimestamp();
         while (try in_stream_splitter.next()) |headers_and_body| {
             const msg_body = headers_and_body.body_part;
             // std.debug.warn("\n\n>>>>>>{s}>>>>>>\n\n", .{msg_body});
@@ -69,6 +70,8 @@ pub const Server = struct {
             };
             if (me.exit_notification_received_from_client)
                 return;
+            // if ((std.time.milliTimestamp() - start) >= 60000)
+            //     return;
         }
         return error.EndOfStdinWithoutProperExitNotificationFromClient;
     }
