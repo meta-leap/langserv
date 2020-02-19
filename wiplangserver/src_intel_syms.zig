@@ -56,7 +56,7 @@ fn srcFileSymbols(comptime T: type, mem: *std.heap.ArenaAllocator, src_file_abs_
         while (i < results.len) : (i += 1) if (intel.named_decls[i].parent_decl) |parent_decl| {
             if (hierarchical) {
                 results[parent_decl].children = try zag.mem.dupeAppend(&mem.allocator, results[parent_decl].children.?, results[i]);
-                results[i].name = "";
+                results[parent_decl].name = "";
             } else
                 results[i].name = try std.fmt.allocPrint(&mem.allocator, "{s}{s}", .{ try zag.mem.times(&mem.allocator, intel.namedDeclDepth(i), "\t"[0..]), results[i].name });
         };
