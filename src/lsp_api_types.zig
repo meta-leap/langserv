@@ -1079,7 +1079,7 @@ pub const DocumentSymbolParams = struct {
 pub const DocumentSymbol = struct {
     name: Str,
     detail: ?Str = null,
-    kind: SymbolKind,
+    kind: SymbolKind = .File,
     deprecated: ?bool = null,
     range: Range,
     selectionRange: Range,
@@ -1088,7 +1088,7 @@ pub const DocumentSymbol = struct {
 
 pub const SymbolInformation = struct {
     name: Str,
-    kind: SymbolKind,
+    kind: SymbolKind = .File,
     deprecated: ?bool = null,
     location: Location,
     containerName: ?Str = null,
