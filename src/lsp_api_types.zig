@@ -70,14 +70,36 @@ pub const Range = struct {
         return null;
     }
 
-    pub fn initFromSlice(string: Str, index_start: usize, index_end: usize) !?Range {
-        if (try Position.fromByteIndexIn(string, index_start)) |start|
-            if (try Position.fromByteIndexIn(string, index_end)) |end|
-                return Range{ .start = start, .end = end };
+    pub fn initFromResliced(string: Str, index_start: usize, index_end: usize) !?Range {
+        if (index_start < string.len and index_end < string.len and index_start <= index_end) {
+            var pos_start: ?Position = null;
+            var cur = Position{ .line = 0, .character = 0 };
+            var i: usize = 0;
+            while (i < string.len) {
+                if (i >= index_end and pos_start != null) {
+                    return Range{ .start = pos_start.?, .end = cur };
+                } else if (i >= index_start and pos_start == null) {
+                    pos_start = cur;
+                    if (index_start == index_end)
+                        return Range{ .start = pos_start.?, .end = pos_start.? };
+                }
+                if (string[i] == '\n') {
+                    cur.line += 1;
+                    cur.character = 0;
+                    i += 1;
+                } else {
+                    cur.character += 1;
+                    i += try std.unicode.utf8ByteSequenceLength(string[i]);
+                }
+            }
+        }
+        // if (try Position.fromByteIndexIn(string, index_start)) |start|
+        //     if (try Position.fromByteIndexIn(string, index_end)) |end|
+        //         return Range{ .start = start, .end = end };
         return null;
     }
 
-    pub fn sliceBounds(me: *const Range, string: Str) !?[2]usize {
+    pub fn indices(me: *const Range, string: Str) !?[2]usize {
         var cur = Position{ .line = 0, .character = 0 };
         var idx_start: ?usize = null;
         var idx_end: ?usize = null;
@@ -105,15 +127,15 @@ pub const Range = struct {
         return null;
     }
 
-    pub fn sliceConst(me: *const Range, string: Str) !?Str {
-        return if (try me.sliceBounds(string)) |start_and_end|
+    pub fn constStr(me: *const Range, string: Str) !?Str {
+        return if (try me.indices(string)) |start_and_end|
             string[start_and_end[0]..start_and_end[1]]
         else
             null;
     }
 
-    pub fn sliceMut(me: *const Range, string: []u8) !?[]u8 {
-        return if (try me.sliceBounds(string)) |start_and_end|
+    pub fn mutBytes(me: *const Range, string: []u8) !?[]u8 {
+        return if (try me.indices(string)) |start_and_end|
             string[start_and_end[0]..start_and_end[1]]
         else
             null;

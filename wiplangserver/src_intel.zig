@@ -17,7 +17,7 @@ fn srcFileSymbols(comptime T: type, mem: *std.heap.ArenaAllocator, src_file_abs_
 
         const sym_kind = SymbolKind.Class;
         const sym_name = if (ranges.name) |range_name|
-            (try range_name.sliceConst(intel.src)) orelse @tagName(named_decl.info)
+            (try range_name.constStr(intel.src)) orelse @tagName(named_decl.info)
         else
             @tagName(named_decl.info);
         var sym_hint = force_sym_hint orelse

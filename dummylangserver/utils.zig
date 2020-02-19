@@ -20,7 +20,7 @@ pub fn gatherPseudoNameLocations(mem: *std.mem.Allocator, src_file_uri: Str, pos
         while (i < name_helper.src.len) {
             if (std.mem.indexOfPos(u8, name_helper.src, i, word)) |idx| {
                 i = idx + word.len;
-                try locs.append((try Range.initFromSlice(name_helper.src, idx, i)) orelse continue);
+                try locs.append((try Range.initFromResliced(name_helper.src, idx, i)) orelse continue);
             } else
                 break;
         }

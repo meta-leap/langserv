@@ -147,7 +147,7 @@ fn onFormat(mem: *std.mem.Allocator, src_file_uri: Str, src_range: ?Range) !Resu
     var ret_range: Range = undefined;
     if (src_range) |range| {
         ret_range = range;
-        src = (try range.sliceMut(src)) orelse return Result(?[]TextEdit){ .ok = null };
+        src = (try range.mutBytes(src)) orelse return Result(?[]TextEdit){ .ok = null };
     } else
         ret_range = (try Range.initFrom(src)) orelse return Result(?[]TextEdit){ .ok = null };
 
@@ -197,7 +197,7 @@ fn onRename(ctx: Server.Ctx(RenameParams)) !Result(?WorkspaceEdit) {
 fn onRenamePrep(ctx: Server.Ctx(TextDocumentPositionParams)) !Result(?RenamePrep) {
     const src_file_uri = ctx.value.textDocument.uri;
     if (try utils.PseudoNameHelper.init(ctx.mem, src_file_uri, ctx.value.position)) |name_helper|
-        if (try Range.initFromSlice(name_helper.src, name_helper.word_start, name_helper.word_end)) |range| {
+        if (try Range.initFromResliced(name_helper.src, name_helper.word_start, name_helper.word_end)) |range| {
             return Result(?RenamePrep){ .ok = .{ .augmented = .{ .placeholder = "Hint text goes here.", .range = range } } };
         };
     return Result(?RenamePrep){ .ok = null };
@@ -306,7 +306,7 @@ fn onSelectionRange(ctx: Server.Ctx(SelectionRangeParams)) !Result(?[]SelectionR
     for (ctx.value.positions) |pos, i| {
         ranges[i].parent = null;
         if (try utils.PseudoNameHelper.init(ctx.mem, src_file_uri, pos)) |name_helper|
-            ranges[i].range = (try Range.initFromSlice(name_helper.src, name_helper.word_start, name_helper.word_end)) orelse
+            ranges[i].range = (try Range.initFromResliced(name_helper.src, name_helper.word_start, name_helper.word_end)) orelse
                 return Result(?[]SelectionRange){ .ok = null }
         else
             return Result(?[]SelectionRange){ .ok = null };

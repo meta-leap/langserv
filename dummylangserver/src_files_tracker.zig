@@ -84,7 +84,7 @@ fn pushDiagnostics(mem: *std.mem.Allocator, srv: *Server, src_file_uri: Str, src
         var i: usize = 0;
         while (std.mem.indexOfPos(u8, src, i, "file://")) |idx| {
             i = idx + "file://".len;
-            if (try Range.initFromSlice(src, idx, i)) |range|
+            if (try Range.initFromResliced(src, idx, i)) |range|
                 try diags.append(Diagnostic{
                     .range = range,
                     .severity = .Warning,
