@@ -13,15 +13,9 @@ fn srcFileSymbols(comptime T: type, mem: *std.heap.ArenaAllocator, src_file_abs_
         return &[_]T{};
     var results = try std.ArrayList(T).initCapacity(&mem.allocator, intel.named_decls.len);
     for (intel.named_decls) |*named_decl| {
-        const range_full = (try Range.initFromSlice(intel.src, named_decl.pos.full_decl.start, named_decl.pos.full_decl.end)) orelse continue;
-        var range_brief_maybe: ?Range = null;
-        var range_name_maybe: ?Range = null;
-        if (named_decl.pos.name) |pos_name|
-            range_name_maybe = try Range.initFromSlice(intel.src, pos_name.start, pos_name.end);
-        if (named_decl.pos.brief) |pos_brief|
-            range_brief_maybe = try Range.initFromSlice(intel.src, pos_brief.start, pos_brief.end);
+        const ranges = (try rangesFor(named_decl, intel.src)) orelse continue;
 
-        var sym_name = if (range_name_maybe) |range_name|
+        var sym_name = if (ranges.name) |range_name|
             (try range_name.sliceConst(intel.src)) orelse @tagName(named_decl.info)
         else
             @tagName(named_decl.info);
@@ -30,12 +24,12 @@ fn srcFileSymbols(comptime T: type, mem: *std.heap.ArenaAllocator, src_file_abs_
             T{
                 .kind = sym_kind,
                 .name = sym_name,
-                .detail = if (range_brief_maybe) |range_brief|
+                .detail = if (ranges.brief) |range_brief|
                     (try range_brief.sliceConst(intel.src)) orelse @tagName(named_decl.info)
                 else
                     @tagName(named_decl.info),
-                .selectionRange = range_brief_maybe orelse range_full,
-                .range = range_full,
+                .selectionRange = ranges.brief orelse ranges.full,
+                .range = ranges.full,
                 .children = &[_]T{},
             }
         else
@@ -45,7 +39,7 @@ fn srcFileSymbols(comptime T: type, mem: *std.heap.ArenaAllocator, src_file_abs_
                 .containerName = "containerName",
                 .location = .{
                     .uri = try std.fmt.allocPrint(&mem.allocator, "file://{}", .{src_file_abs_path}),
-                    .range = range_full,
+                    .range = ranges.full,
                 },
             };
         try results.append(sym);
