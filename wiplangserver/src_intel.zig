@@ -7,7 +7,7 @@ pub fn onHover(ctx: Server.Ctx(HoverParams)) !Result(?Hover) {
     return Result(?Hover){ .ok = Hover{ .contents = MarkupContent{ .value = markdown } } };
 }
 
-fn srcFileSymbols(comptime T: type, mem: *std.heap.ArenaAllocator, src_file_abs_path: Str) ![]T {
+fn srcFileSymbols(comptime T: type, mem: *std.heap.ArenaAllocator, src_file_abs_path: Str, force_sym_hint: ?Str) ![]T {
     const hierarchical = (T == DocumentSymbol);
     const intel = (try zsess.src_intel.fileSpecific(src_file_abs_path, mem)) orelse
         return &[_]T{};
@@ -15,20 +15,25 @@ fn srcFileSymbols(comptime T: type, mem: *std.heap.ArenaAllocator, src_file_abs_
     for (intel.named_decls) |*named_decl| {
         const ranges = (try rangesFor(named_decl, intel.src)) orelse continue;
 
-        var sym_name = if (ranges.name) |range_name|
+        const sym_kind = SymbolKind.Class;
+        const sym_name = if (ranges.name) |range_name|
             (try range_name.sliceConst(intel.src)) orelse @tagName(named_decl.info)
         else
             @tagName(named_decl.info);
-        var sym_kind = SymbolKind.Class;
+        var sym_hint = force_sym_hint orelse
+            ((ranges.strFromAnyOf(&[_]Str{ "brief_suff", "brief" }, intel.src)) orelse @tagName(named_decl.info));
+        if (force_sym_hint == null) {
+            var str = try std.mem.dupe(&mem.allocator, u8, sym_hint);
+            zag.mem.replaceScalars(str, "\t\r\n", ' ');
+            sym_hint = try zag.mem.replace(&mem.allocator, str, "  ", " ", .repeatedly);
+        }
+
         var sym = if (hierarchical)
             T{
                 .kind = sym_kind,
                 .name = sym_name,
-                .detail = if (ranges.brief) |range_brief|
-                    (try range_brief.sliceConst(intel.src)) orelse @tagName(named_decl.info)
-                else
-                    @tagName(named_decl.info),
-                .selectionRange = ranges.brief orelse ranges.full,
+                .detail = sym_hint,
+                .selectionRange = ranges.brief orelse ranges.name orelse ranges.full,
                 .range = ranges.full,
                 .children = &[_]T{},
             }
@@ -36,7 +41,7 @@ fn srcFileSymbols(comptime T: type, mem: *std.heap.ArenaAllocator, src_file_abs_
             T{
                 .name = sym_name,
                 .kind = sym_kind,
-                .containerName = "containerName",
+                .containerName = sym_hint,
                 .location = .{
                     .uri = try std.fmt.allocPrint(&mem.allocator, "file://{}", .{src_file_abs_path}),
                     .range = ranges.full,
@@ -52,9 +57,9 @@ pub fn onSymbolsForDocument(ctx: Server.Ctx(DocumentSymbolParams)) !Result(?Docu
     const hierarchical = ctx.inst.initialized.?.capabilities.textDocument.?.documentSymbol.?.hierarchicalDocumentSymbolSupport orelse false;
     return Result(?DocumentSymbols){
         .ok = if (hierarchical)
-            .{ .hierarchy = try srcFileSymbols(DocumentSymbol, ctx.memArena(), src_file_abs_path) }
+            .{ .hierarchy = try srcFileSymbols(DocumentSymbol, ctx.memArena(), src_file_abs_path, null) }
         else
-            .{ .flat = try srcFileSymbols(SymbolInformation, ctx.memArena(), src_file_abs_path) },
+            .{ .flat = try srcFileSymbols(SymbolInformation, ctx.memArena(), src_file_abs_path, null) },
     };
 }
 
@@ -62,9 +67,7 @@ pub fn onSymbolsForWorkspace(ctx: Server.Ctx(WorkspaceSymbolParams)) !Result(?[]
     var symbols = try std.ArrayList(SymbolInformation).initCapacity(ctx.mem, 16 * 1024);
     var src_file_abs_paths = try zsess.src_files.allCurrentlyTrackedSrcFileAbsPaths(ctx.mem);
     for (src_file_abs_paths) |src_file_abs_path| {
-        var syms = try srcFileSymbols(SymbolInformation, ctx.memArena(), src_file_abs_path);
-        for (syms) |_, i|
-            syms[i].containerName = std.fs.path.dirname(src_file_abs_path) orelse ".";
+        var syms = try srcFileSymbols(SymbolInformation, ctx.memArena(), src_file_abs_path, std.fs.path.dirname(src_file_abs_path) orelse ".");
         try symbols.appendSlice(syms);
     }
     logToStderr("WSSYMS {}", .{symbols.len});
