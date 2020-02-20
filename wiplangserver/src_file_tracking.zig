@@ -84,7 +84,14 @@ pub fn onFileBufOpened(ctx: Server.Ctx(DidOpenTextDocumentParams)) !void {
     else { // fast-track the very first one as it's the currently-opened buffer on session start
         try zsess.src_files.ensureFilesTracked(ctx.memArena(), todo);
         had_file_bufs_opened_event_yet = true;
-        _ = try std.Thread.spawn(&zsess, Session.digForStdLibDirPathViaTempNewLibProj);
+        try onDirsEncountered(
+            ctx.inst,
+            ctx.mem,
+            ctx.inst.initialized.?.rootUri orelse "",
+            ctx.inst.initialized.?.workspaceFolders orelse &[_]WorkspaceFolder{},
+            &[_]WorkspaceFolder{},
+        );
+        // _ = try std.Thread.spawn(&zsess, Session.digForStdLibDirPathViaTempNewLibProj);
     }
 }
 
@@ -231,7 +238,7 @@ pub fn onFileEvents(ctx: Server.Ctx(DidChangeWatchedFilesParams)) !void {
         try zsess.src_files.ensureFilesGone(ctx.memArena(), gone.toSliceConst());
 }
 
-pub fn onInitRegisterFileWatcherAndProcessWorkspaceFolders(ctx: Server.Ctx(InitializedParams)) !void {
+pub fn onInitRegisterFileWatcher(ctx: Server.Ctx(InitializedParams)) !void {
     try ctx.inst.api.request(.client_registerCapability, {}, RegistrationParams{
         .registrations = &[1]Registration{Registration{
             .method = "workspace/didChangeWatchedFiles",
@@ -252,14 +259,6 @@ pub fn onInitRegisterFileWatcherAndProcessWorkspaceFolders(ctx: Server.Ctx(Initi
             }
         }
     });
-
-    try onDirsEncountered(
-        ctx.inst,
-        ctx.mem,
-        ctx.inst.initialized.?.rootUri orelse "",
-        ctx.inst.initialized.?.workspaceFolders orelse &[_]WorkspaceFolder{},
-        &[_]WorkspaceFolder{},
-    );
 }
 
 pub fn loadSrcFileEitherFromFsOrFromLiveBufCache(mem: *std.mem.Allocator, src_file_abs_path: Str) !Str {

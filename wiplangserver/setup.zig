@@ -1,7 +1,7 @@
 usingnamespace @import("./_usingnamespace.zig");
 
 fn onInitialized(ctx: Server.Ctx(InitializedParams)) !void {
-    try onInitRegisterFileWatcherAndProcessWorkspaceFolders(ctx);
+    try onInitRegisterFileWatcher(ctx);
 }
 
 fn onShutdown(ctx: Server.Ctx(void)) error{}!Result(void) {

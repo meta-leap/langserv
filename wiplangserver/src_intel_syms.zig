@@ -20,6 +20,9 @@ fn srcFileSymbols(comptime T: type, mem: *std.heap.ArenaAllocator, src_file_abs_
             .Struct => .Class,
             .Union => .Interface,
             .Enum => .Enum,
+            .Field => .Field,
+            .IdentConst => .Constant,
+            .IdentVar => .Variable,
         };
         const sym_name = if (ranges.name) |range_name|
             (try range_name.constStr(intel.src)) orelse @tagName(this_decl.info)
@@ -62,12 +65,13 @@ fn srcFileSymbols(comptime T: type, mem: *std.heap.ArenaAllocator, src_file_abs_
             if (!hierarchical)
                 results[i].name = try std.fmt.allocPrint(&mem.allocator, "{s}{s}", .{ try zag.mem.times(&mem.allocator, intel.namedDeclDepth(i), "\t"[0..]), results[i].name })
             else {
-                const path = try intel.namedDeclPath(&mem.allocator, i);
-                for (path) |pidx_and_sidx, pi| {
+                for (intel.named_decls[i].hierarchy_path) |pidx_and_sidx, pi| {
                     if (results[pidx_and_sidx[0]].children == null)
-                        results[pidx_and_sidx[0]].children = try mem.allocator.alloc(T, intel.named_decls[pidx_and_sidx[0]].sub_decls.len);
+                        results[pidx_and_sidx[0]].children = try mem.allocator.alloc(T, intel.
+                            named_decls[pidx_and_sidx[0]].sub_decls.len);
                 }
-                results[path[path.len - 1][0]].children.?[path[path.len - 1][1]] = results[i];
+                results[intel.named_decls[i].hierarchy_path[intel.named_decls[i].hierarchy_path.len - 1][0]].
+                    children.?[intel.named_decls[i].hierarchy_path[intel.named_decls[i].hierarchy_path.len - 1][1]] = results[i];
                 results[i].name = "";
             }
         }
