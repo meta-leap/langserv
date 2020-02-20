@@ -17,6 +17,9 @@ fn srcFileSymbols(comptime T: type, mem: *std.heap.ArenaAllocator, src_file_abs_
             .Test => .Event,
             .Fn => .Function,
             .FnArg => .Variable,
+            .Struct => .Class,
+            .Union => .Interface,
+            .Enum => .Enum,
         };
         const sym_name = if (ranges.name) |range_name|
             (try range_name.constStr(intel.src)) orelse @tagName(this_decl.info)
