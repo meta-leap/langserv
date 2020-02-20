@@ -12,7 +12,7 @@ fn srcFileSymbols(comptime T: type, mem: *std.heap.ArenaAllocator, src_file_abs_
             continue;
         };
 
-        const sym_kind = switch (this_decl.info) {
+        const sym_kind = switch (this_decl.kind) {
             else => SymbolKind.File,
             .Test => SymbolKind.Event,
             .Fn => SymbolKind.Function,
@@ -25,11 +25,11 @@ fn srcFileSymbols(comptime T: type, mem: *std.heap.ArenaAllocator, src_file_abs_
             .IdentVar => SymbolKind.Variable,
         };
         const sym_name = if (ranges.name) |range_name|
-            (try range_name.constStr(intel.src)) orelse @tagName(this_decl.info)
+            (try range_name.constStr(intel.src)) orelse @tagName(this_decl.kind)
         else
-            @tagName(this_decl.info);
+            @tagName(this_decl.kind);
         var sym_hint = force_hint orelse
-            ((ranges.strFromAnyOf(&[_]Str{ "brief_suff", "brief" }, intel.src)) orelse @tagName(this_decl.info));
+            ((ranges.strFromAnyOf(&[_]Str{ "brief_suff", "brief" }, intel.src)) orelse @tagName(this_decl.kind));
         if (force_hint == null) {
             var str = try std.mem.dupe(&mem.allocator, u8, sym_hint);
             zag.mem.replaceScalars(str, "\t\r\n", ' ');
