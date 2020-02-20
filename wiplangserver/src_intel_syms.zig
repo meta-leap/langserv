@@ -47,28 +47,36 @@ fn srcFileSymbols(comptime T: type, mem: *std.heap.ArenaAllocator, src_file_abs_
                 .detail = sym_hint,
                 .selectionRange = ranges.brief orelse ranges.name orelse ranges.full,
                 .range = ranges.full,
-                .children = &[_]T{},
+                .children = null, // try mem.allocator.alloc(T, this_decl.sub_decls.len),
             };
         results[i] = this_sym;
     }
-    {
-        var i: usize = 0;
-        while (i < results.len) : (i += 1) if (intel.named_decls[i].parent_decl) |parent_decl| {
-            if (hierarchical) {
-                results[parent_decl].children = try zag.mem.dupeAppend(&mem.allocator, results[parent_decl].children.?, results[i]);
-                results[parent_decl].name = "";
-            } else
-                results[i].name = try std.fmt.allocPrint(&mem.allocator, "{s}{s}", .{ try zag.mem.times(&mem.allocator, intel.namedDeclDepth(i), "\t"[0..]), results[i].name });
-        };
-        var results_list = std.ArrayList(T){ .len = results.len, .items = results, .allocator = &mem.allocator };
-        i = 0;
-        while (i < results_list.len) : (i += 1) if (results_list.items[i].name.len == 0) {
-            _ = results_list.swapRemove(i);
-            i -= 1;
-        };
-        results = results_list.toOwnedSlice();
-    }
 
+    var i: usize = results.len;
+    while (i > 0) {
+        i -= 1;
+        if (intel.named_decls[i].parent_decl) |parent_decl| {
+            if (!hierarchical)
+                results[i].name = try std.fmt.allocPrint(&mem.allocator, "{s}{s}", .{ try zag.mem.times(&mem.allocator, intel.namedDeclDepth(i), "\t"[0..]), results[i].name })
+            else {
+                const path = try intel.namedDeclPath(&mem.allocator, i);
+                for (path) |pidx_and_sidx, pi| {
+                    if (results[pidx_and_sidx[0]].children == null)
+                        results[pidx_and_sidx[0]].children = try mem.allocator.alloc(T, intel.named_decls[pidx_and_sidx[0]].sub_decls.len);
+                }
+                results[path[path.len - 1][0]].children.?[path[path.len - 1][1]] = results[i];
+                results[i].name = "";
+            }
+        }
+    }
+    var results_list = std.ArrayList(T){ .len = results.len, .items = results, .allocator = &mem.allocator };
+    i = results_list.len;
+    while (i > 0) {
+        i -= 1;
+        if (results_list.items[i].name.len == 0)
+            _ = results_list.orderedRemove(i);
+    }
+    results = results_list.toOwnedSlice();
     return results;
 }
 
