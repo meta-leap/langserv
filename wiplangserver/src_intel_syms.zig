@@ -60,21 +60,20 @@ fn srcFileSymbols(comptime T: type, mem: *std.heap.ArenaAllocator, src_file_abs_
     var i: usize = results.len;
     while (i > 0) {
         i -= 1;
-        if (results[i].name.len != 0)
-            if (named_decls[i].parent_decl) |parent_decl| {
-                if (!hierarchical)
-                    results[i].name = try std.fmt.allocPrint(&mem.allocator, "{s}{s}", .{ try zag.mem.times(&mem.allocator, named_decls[i].hierarchy_path.len, "\t"[0..]), results[i].name })
-                else {
-                    for (named_decls[i].hierarchy_path) |pidx_and_sidx, pi| {
-                        if (results[pidx_and_sidx[0]].children == null)
-                            results[pidx_and_sidx[0]].children = try mem.allocator.alloc(T, intel.
-                                named_decls[pidx_and_sidx[0]].sub_decls.len);
-                    }
-                    results[named_decls[i].hierarchy_path[named_decls[i].hierarchy_path.len - 1][0]].
-                        children.?[named_decls[i].hierarchy_path[named_decls[i].hierarchy_path.len - 1][1]] = results[i];
-                    results[i].name = "";
+        if (named_decls[i].parent_decl) |parent_decl| {
+            if (!hierarchical)
+                results[i].name = try std.fmt.allocPrint(&mem.allocator, "{s}{s}", .{ try zag.mem.times(&mem.allocator, named_decls[i].hierarchy_path.len, "\t"[0..]), results[i].name })
+            else {
+                for (named_decls[i].hierarchy_path) |pidx_and_sidx, pi| {
+                    if (results[pidx_and_sidx[0]].children == null)
+                        results[pidx_and_sidx[0]].children = try mem.allocator.alloc(T, intel.
+                            named_decls[pidx_and_sidx[0]].sub_decls.len);
                 }
-            };
+                results[named_decls[i].hierarchy_path[named_decls[i].hierarchy_path.len - 1][0]].
+                    children.?[named_decls[i].hierarchy_path[named_decls[i].hierarchy_path.len - 1][1]] = results[i];
+                results[i].name = "";
+            }
+        }
     }
     var results_list = std.ArrayList(T){ .len = results.len, .items = results, .allocator = &mem.allocator };
     i = results_list.len;
