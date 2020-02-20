@@ -14,15 +14,15 @@ fn srcFileSymbols(comptime T: type, mem: *std.heap.ArenaAllocator, src_file_abs_
 
         const sym_kind = switch (this_decl.info) {
             else => SymbolKind.File,
-            .Test => .Event,
-            .Fn => .Function,
-            .FnArg => .Variable,
-            .Struct => .Class,
-            .Union => .Interface,
-            .Enum => .Enum,
-            .Field => .Field,
-            .IdentConst => .Constant,
-            .IdentVar => .Variable,
+            .Test => SymbolKind.Event,
+            .Fn => SymbolKind.Function,
+            .FnArg => SymbolKind.Variable,
+            .Struct => SymbolKind.Class,
+            .Union => SymbolKind.Interface,
+            .Enum => SymbolKind.Enum,
+            .Field => |field| if (field.of_struct) SymbolKind.Field else SymbolKind.EnumMember,
+            .IdentConst => SymbolKind.Constant,
+            .IdentVar => SymbolKind.Variable,
         };
         const sym_name = if (ranges.name) |range_name|
             (try range_name.constStr(intel.src)) orelse @tagName(this_decl.info)
