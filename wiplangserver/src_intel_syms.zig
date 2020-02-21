@@ -4,10 +4,11 @@ fn srcFileSymbols(comptime T: type, mem: *std.heap.ArenaAllocator, src_file_abs_
     const hierarchical = (T == DocumentSymbol);
     const intel = (try zsess.src_intel.fileSpecificIntelCopy(src_file_abs_path, mem)) orelse
         return &[_]T{};
-    var named_decls = try intel.namedDecls(mem);
-    var results = try mem.allocator.alloc(T, named_decls.len);
+    const decls = try intel.decls.toOrderedList();
+    var results = try std.ArrayList(T).initCapacity(&mem.allocator, decls.len);
 
-    for (named_decls) |*this_decl, i| {
+    for (decls) |*list_entry, i| {
+        const this_decl = list_entry.item;
         const ranges = (try rangesFor(this_decl, intel.src)) orelse
             return &[_]T{};
 
@@ -23,10 +24,12 @@ fn srcFileSymbols(comptime T: type, mem: *std.heap.ArenaAllocator, src_file_abs_
             .IdentConst => SymbolKind.Constant,
             .IdentVar => SymbolKind.Variable,
         };
-        const sym_name = if (ranges.name) |range_name|
+        var sym_name = if (ranges.name) |range_name|
             (try range_name.constStr(intel.src)) orelse @tagName(this_decl.kind)
         else
             @tagName(this_decl.kind);
+        if (!hierarchical and list_entry.depth != 0)
+            sym_name = try std.fmt.allocPrint(&mem.allocator, "{s}{s}", .{ try zag.mem.times(&mem.allocator, list_entry.depth, "\t"[0..]), sym_name });
         var sym_hint = force_hint orelse
             ((ranges.strFromAnyOf(&[_]Str{ "brief_suff", "brief" }, intel.src)) orelse @tagName(this_decl.kind));
         if (force_hint == null) {
@@ -54,41 +57,15 @@ fn srcFileSymbols(comptime T: type, mem: *std.heap.ArenaAllocator, src_file_abs_
                 .range = ranges.full,
                 .children = null, // try mem.allocator.alloc(T, this_decl.sub_decls.len),
             };
-        results[i] = this_sym;
+        try results.append(this_sym);
     }
 
-    var i: usize = results.len;
-    while (i > 0) {
-        i -= 1;
-        if (named_decls[i].parent_decl) |parent_decl| {
-            if (!hierarchical)
-                results[i].name = try std.fmt.allocPrint(&mem.allocator, "{s}{s}", .{ try zag.mem.times(&mem.allocator, named_decls[i].hierarchy_path.len, "\t"[0..]), results[i].name })
-            else {
-                for (named_decls[i].hierarchy_path) |pidx_and_sidx, pi| {
-                    if (results[pidx_and_sidx[0]].children == null)
-                        results[pidx_and_sidx[0]].children = try mem.allocator.alloc(T, intel.
-                            named_decls[pidx_and_sidx[0]].sub_decls.len);
-                }
-                results[named_decls[i].hierarchy_path[named_decls[i].hierarchy_path.len - 1][0]].
-                    children.?[named_decls[i].hierarchy_path[named_decls[i].hierarchy_path.len - 1][1]] = results[i];
-                results[i].name = "";
-            }
-        }
-    }
-    var results_list = std.ArrayList(T){ .len = results.len, .items = results, .allocator = &mem.allocator };
-    i = results_list.len;
-    while (i > 0) {
-        i -= 1;
-        if (results_list.items[i].name.len == 0)
-            _ = results_list.orderedRemove(i);
-    }
-    results = results_list.toOwnedSlice();
-    return results;
+    return results.toSlice();
 }
 
 pub fn onSymbolsForDocument(ctx: Server.Ctx(DocumentSymbolParams)) !Result(?DocumentSymbols) {
     const src_file_abs_path = lspUriToFilePath(ctx.value.textDocument.uri);
-    const hierarchical = ctx.inst.initialized.?.capabilities.textDocument.?.documentSymbol.?.hierarchicalDocumentSymbolSupport orelse false;
+    const hierarchical = false; // ctx.inst.initialized.?.capabilities.textDocument.?.documentSymbol.?.hierarchicalDocumentSymbolSupport orelse false;
     return Result(?DocumentSymbols){
         .ok = if (hierarchical)
             .{ .hierarchy = try srcFileSymbols(DocumentSymbol, ctx.memArena(), src_file_abs_path, null) }
@@ -118,7 +95,7 @@ pub fn onSymbolHighlight(ctx: Server.Ctx(DocumentHighlightParams)) !Result(?[]Do
     return Result(?[]DocumentHighlight){ .ok = syms };
 }
 
-inline fn rangesFor(named_decl: *SrcFile.Intel.NamedDecl, in_src: Str) !?struct {
+inline fn rangesFor(decl: *const SrcFile.Intel.Decl, in_src: Str) !?struct {
     full: Range = null, // TODO: Zig should compileError here! but in minimal repro it does. so leave it for now, but report before Zig 1.0.0 if it doesn't get fixed by chance in the meantime
     name: ?Range = null,
     brief: ?Range = null,
@@ -138,16 +115,16 @@ inline fn rangesFor(named_decl: *SrcFile.Intel.NamedDecl, in_src: Str) !?struct 
 } {
     const TRet = @typeInfo(@typeInfo(@TypeOf(rangesFor).ReturnType).ErrorUnion.payload).Optional.child;
     var ret = TRet{
-        .full = (try Range.initFromResliced(in_src, named_decl.
-            pos.full.start, named_decl.pos.full.end)) orelse return null,
+        .full = (try Range.initFromResliced(in_src, decl.
+            pos.full.start, decl.pos.full.end)) orelse return null,
     };
-    if (named_decl.pos.name) |pos_name|
+    if (decl.pos.name) |pos_name|
         ret.name = try Range.initFromResliced(in_src, pos_name.start, pos_name.end);
-    if (named_decl.pos.brief) |pos_brief|
+    if (decl.pos.brief) |pos_brief|
         ret.brief = try Range.initFromResliced(in_src, pos_brief.start, pos_brief.end);
-    if (named_decl.pos.brief_pref) |pos_brief_pref|
+    if (decl.pos.brief_pref) |pos_brief_pref|
         ret.brief_pref = try Range.initFromResliced(in_src, pos_brief_pref.start, pos_brief_pref.end);
-    if (named_decl.pos.brief_suff) |pos_brief_suff|
+    if (decl.pos.brief_suff) |pos_brief_suff|
         ret.brief_suff = try Range.initFromResliced(in_src, pos_brief_suff.start, pos_brief_suff.end);
     return ret;
 }
