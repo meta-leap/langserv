@@ -7,7 +7,6 @@ fn srcFileSymbols(comptime T: type, mem: *std.heap.ArenaAllocator, src_file_abs_
     const decls = try intel.decls.toOrderedList();
     var results = try std.ArrayList(T).initCapacity(&mem.allocator, decls.len);
 
-    std.debug.warn("NUM\t{}\t{}\n", .{ intel.decls.all_nodes.len, decls.len });
     for (decls) |*list_entry, i| {
         const this_decl = list_entry.item;
         const ranges = (try rangesFor(this_decl, intel.src)) orelse
