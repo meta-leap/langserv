@@ -4,7 +4,7 @@ fn srcFileSymbols(comptime T: type, mem: *std.heap.ArenaAllocator, src_file_abs_
     const hierarchical = (T == DocumentSymbol);
     const intel = (try zsess.src_intel.fileSpecificIntelCopy(src_file_abs_path, mem)) orelse
         return &[_]T{};
-    const decls = try intel.decls.toOrderedList();
+    const decls = try intel.decls.toOrderedList(null);
     var results = try std.ArrayList(T).initCapacity(&mem.allocator, decls.len);
 
     for (decls) |*list_entry, i| {
@@ -21,8 +21,22 @@ fn srcFileSymbols(comptime T: type, mem: *std.heap.ArenaAllocator, src_file_abs_
             .Union => SymbolKind.Interface,
             .Enum => SymbolKind.Enum,
             .Field => |field| if (field.of_struct) SymbolKind.Field else SymbolKind.EnumMember,
-            .IdentConst => if (list_entry.depth == 0) SymbolKind.Constant else continue,
-            .IdentVar => if (list_entry.depth == 0) SymbolKind.Variable else continue,
+            .IdentConst, .IdentVar => chk: {
+                var incl = (list_entry.parent == null or list_entry.parent.?.isContainer());
+                if (!incl and try intel.decls.hasSubNodes(this_decl))
+                    incl = sub: {
+                        var sub_tree = try intel.decls.toOrderedList(this_decl);
+                        for (sub_tree) |*entry| {
+                            if (entry.item.isContainer())
+                                break :sub true;
+                        } else
+                            break :sub false;
+                    };
+                if (incl)
+                    break :chk if (this_decl.kind == .IdentVar) SymbolKind.Variable else SymbolKind.Constant
+                else
+                    continue;
+            },
         };
         var sym_name = if (ranges.name) |range_name|
             (try range_name.constStr(intel.src)) orelse @tagName(this_decl.kind)
