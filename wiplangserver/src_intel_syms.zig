@@ -21,7 +21,7 @@ fn srcFileSymbols(comptime T: type, mem: *std.heap.ArenaAllocator, src_file_abs_
             .Union => SymbolKind.Interface,
             .Enum => SymbolKind.Enum,
             .Field => |field| if (field.of_struct) SymbolKind.Field else SymbolKind.EnumMember,
-            .IdentConst, .IdentVar => chk: {
+            .IdentConst, .IdentVar, .Init => chk: {
                 var incl = (list_entry.parent == null or list_entry.parent.?.isContainer());
                 if (!incl and try intel.decls.hasSubNodes(this_decl))
                     incl = sub: {
@@ -32,10 +32,14 @@ fn srcFileSymbols(comptime T: type, mem: *std.heap.ArenaAllocator, src_file_abs_
                         } else
                             break :sub false;
                     };
-                if (incl)
-                    break :chk if (this_decl.kind == .IdentVar) SymbolKind.Variable else SymbolKind.Constant
-                else
+                if (!incl)
                     continue;
+                break :chk if (this_decl.kind == .IdentVar)
+                    SymbolKind.Variable
+                else if (this_decl.kind == .IdentConst)
+                    SymbolKind.Constant
+                else
+                    SymbolKind.Field;
             },
         };
         var sym_name = if (ranges.name) |range_name|
