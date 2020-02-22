@@ -16,13 +16,13 @@ fn srcFileSymbols(comptime T: type, mem: *std.heap.ArenaAllocator, src_file_abs_
             else => SymbolKind.File,
             .Test => SymbolKind.Event,
             .Fn => SymbolKind.Function,
-            .FnArg => SymbolKind.Variable,
+            .FnArg => continue, // SymbolKind.Variable,
             .Struct => SymbolKind.Class,
             .Union => SymbolKind.Interface,
             .Enum => SymbolKind.Enum,
             .Field => |field| if (field.of_struct) SymbolKind.Field else SymbolKind.EnumMember,
-            .IdentConst => SymbolKind.Constant,
-            .IdentVar => SymbolKind.Variable,
+            .IdentConst => if (list_entry.depth == 0) SymbolKind.Constant else continue,
+            .IdentVar => if (list_entry.depth == 0) SymbolKind.Variable else continue,
         };
         var sym_name = if (ranges.name) |range_name|
             (try range_name.constStr(intel.src)) orelse @tagName(this_decl.kind)
