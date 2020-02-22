@@ -7,40 +7,66 @@ fn srcFileSymbols(comptime T: type, mem: *std.heap.ArenaAllocator, src_file_abs_
     const decls = try intel.decls.toOrderedList(null);
     var results = try std.ArrayList(T).initCapacity(&mem.allocator, decls.len);
 
+    { // prefilter `decls` by removing unwanted nodes so we can iterate dumbly later
+        var tmp = std.ArrayList(@typeInfo(@TypeOf(decls)).Pointer.child){ .len = decls.len, .items = decls, .allocator = &mem.allocator };
+        var i: usize = 0;
+        while (i < tmp.len) switch (tmp.items[i].item.kind) {
+            else => i += 1,
+            .FnArg => _ = tmp.orderedRemove(i),
+            .IdentConst, .IdentVar, .Init => {
+                var keep = (tmp.items[i].parent == null or tmp.items[i].parent.?.isContainer());
+                if (!keep and try intel.decls.hasSubNodes(tmp.items[i].item))
+                    keep = lets_find_out: {
+                        var sub_tree = try intel.decls.toOrderedList(tmp.items[i].item);
+                        for (sub_tree) |*entry| {
+                            if (entry.item.isContainer())
+                                break :lets_find_out true;
+                        } else
+                            break :lets_find_out false;
+                    };
+                if (!keep)
+                    _ = tmp.orderedRemove(i)
+                else
+                    i += 1;
+            },
+            .Struct, .Union, .Enum => {
+                if (tmp.items[i].parent) |parent| {
+                    if (i < (tmp.len - 1) and
+                        tmp.items[i - 1].item == parent and tmp.items[i + 1].depth > tmp.items[i].depth and
+                        tmp.items[i + 1].parent != null and tmp.items[i + 1].parent.? == tmp.items[i].item and
+                        tmp.items[i - 1].item.kind != .Fn)
+                    {
+                        var j = i + 1;
+                        while (j < tmp.len) : (j += 1)
+                            if (tmp.items[j].depth <= tmp.items[i].depth) break else tmp.items[j].depth -= 1;
+                        if (tmp.items[i - 1].item.kind != .Field)
+                            tmp.items[i - 1].item.tag = tmp.items[i].item.kind;
+                        _ = tmp.orderedRemove(i);
+                    } else
+                        i += 1;
+                } else
+                    i += 1;
+            },
+        };
+        decls = tmp.items[0..tmp.len];
+    }
+
     for (decls) |*list_entry, i| {
         const this_decl = list_entry.item;
         const ranges = (try rangesFor(this_decl, intel.src)) orelse
             return &[_]T{};
 
-        const sym_kind = switch (this_decl.kind) {
-            else => SymbolKind.File,
+        const sym_kind = switch (this_decl.tag orelse this_decl.kind) {
+            else => unreachable,
             .Test => SymbolKind.Event,
-            .Fn => SymbolKind.Function,
-            .FnArg => continue, // SymbolKind.Variable,
+            .Fn => |fn_info| if (fn_info.returns_type) SymbolKind.TypeParameter else SymbolKind.Function,
             .Struct => SymbolKind.Class,
             .Union => SymbolKind.Interface,
             .Enum => SymbolKind.Enum,
-            .Field => |field| if (field.of_struct) SymbolKind.Field else SymbolKind.EnumMember,
-            .IdentConst, .IdentVar, .Init => chk: {
-                var incl = (list_entry.parent == null or list_entry.parent.?.isContainer());
-                if (!incl and try intel.decls.hasSubNodes(this_decl))
-                    incl = sub: {
-                        var sub_tree = try intel.decls.toOrderedList(this_decl);
-                        for (sub_tree) |*entry| {
-                            if (entry.item.isContainer())
-                                break :sub true;
-                        } else
-                            break :sub false;
-                    };
-                if (!incl)
-                    continue;
-                break :chk if (this_decl.kind == .IdentVar)
-                    SymbolKind.Variable
-                else if (this_decl.kind == .IdentConst)
-                    SymbolKind.Constant
-                else
-                    SymbolKind.Field;
-            },
+            .Field => |field| if (field.is_struct_field) SymbolKind.Field else SymbolKind.EnumMember,
+            .IdentConst => SymbolKind.Constant,
+            .IdentVar => SymbolKind.Variable,
+            .Init => SymbolKind.Field,
         };
         var sym_name = if (ranges.name) |range_name|
             (try range_name.constStr(intel.src)) orelse @tagName(this_decl.kind)
@@ -49,7 +75,7 @@ fn srcFileSymbols(comptime T: type, mem: *std.heap.ArenaAllocator, src_file_abs_
         if (!hierarchical and list_entry.depth != 0)
             sym_name = try std.fmt.allocPrint(&mem.allocator, "{s}{s}", .{ try zag.mem.times(&mem.allocator, list_entry.depth, "\t"[0..]), sym_name });
         var sym_hint = force_hint orelse
-            ((ranges.strFromAnyOf(&[_]Str{ "brief_suff", "brief" }, intel.src)) orelse @tagName(this_decl.kind));
+            ((ranges.strFromAnyOf(&[_]Str{ "brief_suff", "brief" }, intel.src)) orelse "");
         if (force_hint == null) {
             var str = try std.mem.dupe(&mem.allocator, u8, sym_hint);
             zag.mem.replaceScalars(str, "\t\r\n", ' ');
