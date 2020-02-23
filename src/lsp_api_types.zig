@@ -156,18 +156,20 @@ pub const LocationLink = struct {
 
 pub const Diagnostic = struct {
     range: Range,
-    severity: ?enum {
-        __ = 0,
-        Error = 1,
-        Warning = 2,
-        Information = 3,
-        Hint = 4,
-    } = null,
+    severity: ?DiagnosticSeverity = null,
     code: ?jsonic.AnyValue = null,
     source: ?Str = null,
     message: Str,
     tags: ?[]DiagnosticTag = null,
     relatedInformation: ?[]DiagnosticRelatedInformation = null,
+};
+
+pub const DiagnosticSeverity = enum {
+    __ = 0,
+    Error = 1,
+    Warning = 2,
+    Information = 3,
+    Hint = 4,
 };
 
 pub const DiagnosticTag = enum {

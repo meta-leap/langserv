@@ -82,8 +82,8 @@ pub fn onFileBufOpened(ctx: Server.Ctx(DidOpenTextDocumentParams)) !void {
     if (had_file_bufs_opened_event_yet)
         try zsess.workers.src_files_gatherer.base.prependJobs(todo)
     else { // fast-track the very first one as it's the currently-opened buffer on session start
-        try zsess.src_files.ensureFilesTracked(ctx.memArena(), todo);
         had_file_bufs_opened_event_yet = true;
+        try zsess.src_files.ensureFilesTracked(ctx.memArena(), todo);
         try onDirsEncountered(
             ctx.inst,
             ctx.mem,

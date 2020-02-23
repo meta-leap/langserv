@@ -7,7 +7,7 @@ fn srcFileSymbols(comptime T: type, mem: *std.heap.ArenaAllocator, src_file_abs_
     const decls = try intel.decls.toOrderedList(null);
     var results = try std.ArrayList(T).initCapacity(&mem.allocator, decls.len);
 
-    { // prefilter `decls` by removing unwanted nodes so we can iterate dumbly later
+    { // prefilter `decls` by removing unwanted nodes so we can iterate more dumbly afterwards
         var tmp = std.ArrayList(@typeInfo(@TypeOf(decls)).Pointer.child){ .len = decls.len, .items = decls, .allocator = &mem.allocator };
         var i: usize = 0;
         while (i < tmp.len) {
@@ -16,30 +16,18 @@ fn srcFileSymbols(comptime T: type, mem: *std.heap.ArenaAllocator, src_file_abs_
                 else => {},
                 .FnArg => should_remove = true,
                 .IdentConst, .IdentVar, .Init => {
-                    var keep = (tmp.items[i].parent == null or tmp.items[i].parent.?.isContainer());
-                    if (!keep and try intel.decls.hasSubNodes(tmp.items[i].item))
-                        keep = lets_find_out: {
-                            var sub_tree = try intel.decls.toOrderedList(tmp.items[i].item);
-                            for (sub_tree) |*entry| {
-                                if (entry.item.isContainer())
-                                    break :lets_find_out true;
-                            } else
-                                break :lets_find_out false;
-                        };
+                    var keep = (tmp.items[i].parent == null or
+                        tmp.items[i].parent.?.isContainer() or
+                        try intel.decls.haveAny(SrcFile.Intel.Decl.isContainer, tmp.items[i].item));
                     should_remove = !keep;
                 },
-                .Struct, .Union, .Enum => {
-                    if (tmp.items[i].parent) |parent| {
-                        if (i < (tmp.len - 1) and
-                            tmp.items[i - 1].item == parent and tmp.items[i + 1].depth > tmp.items[i].depth and
-                            tmp.items[i + 1].parent != null and tmp.items[i + 1].parent.? == tmp.items[i].item and
-                            tmp.items[i - 1].item.kind != .Fn)
-                        {
-                            should_remove = true;
-                            if (tmp.items[i - 1].item.kind != .Field)
-                                tmp.items[i - 1].item.tag = tmp.items[i].item.kind;
-                        }
-                    }
+                .Struct, .Union, .Enum => if (tmp.items[i].parent) |parent| {
+                    should_remove = (i < (tmp.len - 1) and
+                        tmp.items[i - 1].item == parent and
+                    // tmp.items[i + 1].depth > tmp.items[i].depth and tmp.items[i + 1].parent != null and tmp.items[i + 1].parent.? == tmp.items[i].item and
+                        tmp.items[i - 1].item.kind != .Fn and tmp.items[i - 1].item.kind != .Test);
+                    if (should_remove and tmp.items[i - 1].item.kind != .Field)
+                        tmp.items[i - 1].item.tag = tmp.items[i].item.kind;
                 },
             }
             if (!should_remove)
@@ -109,7 +97,6 @@ fn srcFileSymbols(comptime T: type, mem: *std.heap.ArenaAllocator, src_file_abs_
         if (!hierarchical)
             try results.append(this_sym)
         else if (list_entry.parent) |parent_decl_ptr| {
-            std.debug.warn("{}\n", .{src_file_abs_path});
             const depth_diff = @intCast(isize, list_entry.depth) - @intCast(isize, decls[i - 1].depth);
             var dst: *T = &results.items[cur_path[0]];
             var i_path: usize = 1;
