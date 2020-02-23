@@ -91,7 +91,7 @@ pub fn onFileBufOpened(ctx: Server.Ctx(DidOpenTextDocumentParams)) !void {
             ctx.inst.initialized.?.workspaceFolders orelse &[_]WorkspaceFolder{},
             &[_]WorkspaceFolder{},
         );
-        // _ = try std.Thread.spawn(&zsess, Session.digForStdLibDirPathViaTempNewLibProj);
+        _ = try std.Thread.spawn(&zsess, Session.digForStdLibDirPathViaTempNewLibProj);
     }
 }
 

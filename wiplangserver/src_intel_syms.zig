@@ -23,7 +23,7 @@ fn srcFileSymbols(comptime T: type, mem: *std.heap.ArenaAllocator, src_file_abs_
                 },
                 .Struct, .Union, .Enum => if (tmp.items[i].parent) |parent| {
                     should_remove = (i < (tmp.len - 1) and
-                        tmp.items[i - 1].item == parent and
+                        tmp.items[i - 1].item == parent and 1 == try intel.decls.numSubNodes(parent, 2) and
                     // tmp.items[i + 1].depth > tmp.items[i].depth and tmp.items[i + 1].parent != null and tmp.items[i + 1].parent.? == tmp.items[i].item and
                         tmp.items[i - 1].item.kind != .Fn and tmp.items[i - 1].item.kind != .Test);
                     if (should_remove and tmp.items[i - 1].item.kind != .Field)
@@ -89,7 +89,7 @@ fn srcFileSymbols(comptime T: type, mem: *std.heap.ArenaAllocator, src_file_abs_
                 .kind = sym_kind,
                 .name = sym_name,
                 .detail = sym_hint,
-                .selectionRange = ranges.brief orelse ranges.name orelse ranges.full,
+                .selectionRange = ranges.name orelse ranges.full,
                 .range = ranges.full,
                 .children = &[_]T{},
             };
