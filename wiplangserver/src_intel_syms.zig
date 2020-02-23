@@ -6,7 +6,7 @@ fn srcFileSymbols(comptime T: type, mem: *std.heap.ArenaAllocator, src_file_abs_
         return &[_]T{};
     defer intel_shared.held.release();
     const intel = intel_shared.item;
-    const decls = try intel.decls.toOrderedList(null);
+    const decls = try intel.decls.toOrderedList(&mem.allocator, null);
     var results = try std.ArrayList(T).initCapacity(&mem.allocator, decls.len);
 
     { // prefilter `decls` by removing unwanted nodes so we can iterate more dumbly afterwards

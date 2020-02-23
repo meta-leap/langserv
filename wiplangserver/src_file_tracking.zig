@@ -220,22 +220,15 @@ pub fn onFileEvents(ctx: Server.Ctx(DidChangeWatchedFilesParams)) !void {
     zsess.workers.src_files_reloader.base.cancelPendingEnqueuedJobs(src_file_ids);
     zsess.workers.src_files_refresh_intel.base.cancelPendingEnqueuedJobs(src_file_ids);
     var jobs = try std.ArrayList(SrcFiles.EnsureTracked).initCapacity(ctx.mem, ctx.value.changes.len);
-    var gone = try std.ArrayList(Str).initCapacity(ctx.mem, ctx.value.changes.len);
     {
         const lock = src_files_owned_by_client.lock();
         defer lock.release();
         for (ctx.value.changes) |file_event, i| {
             const currently_owned_by_client = (null != src_files_owned_by_client.live_bufs.get(src_file_abs_paths[i]));
-            if (file_event.@"type" == .Deleted)
-                try gone.append(src_file_abs_paths[i])
-            else
-                try jobs.append(.{ .absolute_path = src_file_abs_paths[i], .force_reload = !currently_owned_by_client });
+            try jobs.append(.{ .absolute_path = src_file_abs_paths[i], .force_reload = !currently_owned_by_client });
         }
     }
-    if (jobs.len != 0)
-        try zsess.workers.src_files_gatherer.base.appendJobs(jobs.toSlice());
-    if (gone.len != 0)
-        try zsess.src_files.ensureFilesGone(ctx.memArena(), gone.toSliceConst());
+    try zsess.workers.src_files_gatherer.base.appendJobs(jobs.toSlice());
 }
 
 pub fn onInitRegisterFileWatcher(ctx: Server.Ctx(InitializedParams)) !void {
