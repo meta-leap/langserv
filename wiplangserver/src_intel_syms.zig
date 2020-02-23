@@ -12,22 +12,22 @@ fn srcFileSymbols(comptime T: type, mem: *std.heap.ArenaAllocator, src_file_abs_
         var i: usize = 0;
         while (i < tmp.len) {
             var should_remove = false;
-            switch (tmp.items[i].item.kind) {
+            switch (tmp.items[i].value.kind) {
                 else => {},
                 .FnArg => should_remove = true,
                 .IdentConst, .IdentVar, .Init => {
                     var keep = (tmp.items[i].parent == null or
-                        tmp.items[i].parent.?.isContainer() or
-                        try intel.decls.haveAny(SrcFile.Intel.Decl.isContainer, tmp.items[i].item));
+                        intel.decls.get(tmp.items[i].parent.?).isContainer() or
+                        try intel.decls.haveAny(SrcFile.Intel.Decl.isContainer, tmp.items[i].node_id));
                     should_remove = !keep;
                 },
                 .Struct, .Union, .Enum => if (tmp.items[i].parent) |parent| {
                     should_remove = (i < (tmp.len - 1) and
-                        tmp.items[i - 1].item == parent and 1 == try intel.decls.numSubNodes(parent, 2) and
-                    // tmp.items[i + 1].depth > tmp.items[i].depth and tmp.items[i + 1].parent != null and tmp.items[i + 1].parent.? == tmp.items[i].item and
-                        tmp.items[i - 1].item.kind != .Fn and tmp.items[i - 1].item.kind != .Test);
-                    if (should_remove and tmp.items[i - 1].item.kind != .Field)
-                        tmp.items[i - 1].item.tag = tmp.items[i].item.kind;
+                        tmp.items[i - 1].node_id == parent and 1 == intel.decls.numSubNodes(parent, 2) and
+                    // tmp.items[i + 1].depth > tmp.items[i].depth and tmp.items[i + 1].parent != null and tmp.items[i + 1].parent.? == tmp.items[i].node_id and
+                        tmp.items[i - 1].value.kind != .Fn and tmp.items[i - 1].value.kind != .Test);
+                    if (should_remove and tmp.items[i - 1].value.kind != .Field)
+                        tmp.items[i - 1].value.tag = tmp.items[i].value.kind;
                 },
             }
             if (!should_remove)
@@ -44,7 +44,7 @@ fn srcFileSymbols(comptime T: type, mem: *std.heap.ArenaAllocator, src_file_abs_
 
     var cur_path: []usize = &[_]usize{};
     for (decls) |*list_entry, i| {
-        const this_decl = list_entry.item;
+        const this_decl = list_entry.value;
         const ranges = (try rangesFor(this_decl, intel.src)) orelse
             return &[_]T{};
 
@@ -52,13 +52,14 @@ fn srcFileSymbols(comptime T: type, mem: *std.heap.ArenaAllocator, src_file_abs_
             else => unreachable,
             .Test => SymbolKind.Event,
             .Fn => |fn_info| if (fn_info.returns_type) SymbolKind.TypeParameter else SymbolKind.Function,
-            .Struct => SymbolKind.Class,
-            .Union => SymbolKind.Interface,
+            .Struct => SymbolKind.Struct,
+            .Union => SymbolKind.Null,
             .Enum => SymbolKind.Enum,
             .Field => |field| if (field.is_struct_field) SymbolKind.Field else SymbolKind.EnumMember,
             .IdentConst => SymbolKind.Constant,
             .IdentVar => SymbolKind.Variable,
             .Init => SymbolKind.Field,
+            .Using => SymbolKind.Namespace,
         };
         var sym_name = if (ranges.name) |range_name|
             (try range_name.constStr(intel.src)) orelse @tagName(this_decl.kind)
@@ -146,13 +147,15 @@ pub fn onSymbolsForDocument(ctx: Server.Ctx(DocumentSymbolParams)) !Result(?Docu
 }
 
 pub fn onSymbolsForWorkspace(ctx: Server.Ctx(WorkspaceSymbolParams)) !Result(?[]SymbolInformation) {
-    var symbols = try std.ArrayList(SymbolInformation).initCapacity(ctx.mem, 16 * 1024);
+    const start_time = std.time.milliTimestamp();
+    var symbols = try std.ArrayList(SymbolInformation).initCapacity(ctx.mem, 64 * 1024);
     var src_file_abs_paths = try zsess.src_files.allCurrentlyTrackedSrcFileAbsPaths(ctx.mem);
     for (src_file_abs_paths) |src_file_abs_path| {
         var syms = try srcFileSymbols(SymbolInformation, ctx.memArena(), src_file_abs_path, std.fs.path.dirname(src_file_abs_path) orelse ".");
         try symbols.appendSlice(syms);
     }
-    logToStderr("WSSYMS {}", .{symbols.len});
+    const time_taken = std.time.milliTimestamp() - start_time;
+    logToStderr("WSS {}\t{}\n", .{ time_taken, symbols.len });
     return Result(?[]SymbolInformation){ .ok = symbols.toSlice() };
 }
 
