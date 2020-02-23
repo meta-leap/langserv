@@ -10,47 +10,51 @@ fn srcFileSymbols(comptime T: type, mem: *std.heap.ArenaAllocator, src_file_abs_
     { // prefilter `decls` by removing unwanted nodes so we can iterate dumbly later
         var tmp = std.ArrayList(@typeInfo(@TypeOf(decls)).Pointer.child){ .len = decls.len, .items = decls, .allocator = &mem.allocator };
         var i: usize = 0;
-        while (i < tmp.len) switch (tmp.items[i].item.kind) {
-            else => i += 1,
-            .FnArg => _ = tmp.orderedRemove(i),
-            .IdentConst, .IdentVar, .Init => {
-                var keep = (tmp.items[i].parent == null or tmp.items[i].parent.?.isContainer());
-                if (!keep and try intel.decls.hasSubNodes(tmp.items[i].item))
-                    keep = lets_find_out: {
-                        var sub_tree = try intel.decls.toOrderedList(tmp.items[i].item);
-                        for (sub_tree) |*entry| {
-                            if (entry.item.isContainer())
-                                break :lets_find_out true;
-                        } else
-                            break :lets_find_out false;
-                    };
-                if (!keep)
-                    _ = tmp.orderedRemove(i)
-                else
-                    i += 1;
-            },
-            .Struct, .Union, .Enum => {
-                if (tmp.items[i].parent) |parent| {
-                    if (i < (tmp.len - 1) and
-                        tmp.items[i - 1].item == parent and tmp.items[i + 1].depth > tmp.items[i].depth and
-                        tmp.items[i + 1].parent != null and tmp.items[i + 1].parent.? == tmp.items[i].item and
-                        tmp.items[i - 1].item.kind != .Fn)
-                    {
-                        var j = i + 1;
-                        while (j < tmp.len) : (j += 1)
-                            if (tmp.items[j].depth <= tmp.items[i].depth) break else tmp.items[j].depth -= 1;
-                        if (tmp.items[i - 1].item.kind != .Field)
-                            tmp.items[i - 1].item.tag = tmp.items[i].item.kind;
-                        _ = tmp.orderedRemove(i);
-                    } else
-                        i += 1;
-                } else
-                    i += 1;
-            },
-        };
+        while (i < tmp.len) {
+            var should_remove = false;
+            switch (tmp.items[i].item.kind) {
+                else => {},
+                .FnArg => should_remove = true,
+                .IdentConst, .IdentVar, .Init => {
+                    var keep = (tmp.items[i].parent == null or tmp.items[i].parent.?.isContainer());
+                    if (!keep and try intel.decls.hasSubNodes(tmp.items[i].item))
+                        keep = lets_find_out: {
+                            var sub_tree = try intel.decls.toOrderedList(tmp.items[i].item);
+                            for (sub_tree) |*entry| {
+                                if (entry.item.isContainer())
+                                    break :lets_find_out true;
+                            } else
+                                break :lets_find_out false;
+                        };
+                    should_remove = !keep;
+                },
+                .Struct, .Union, .Enum => {
+                    if (tmp.items[i].parent) |parent| {
+                        if (i < (tmp.len - 1) and
+                            tmp.items[i - 1].item == parent and tmp.items[i + 1].depth > tmp.items[i].depth and
+                            tmp.items[i + 1].parent != null and tmp.items[i + 1].parent.? == tmp.items[i].item and
+                            tmp.items[i - 1].item.kind != .Fn)
+                        {
+                            should_remove = true;
+                            if (tmp.items[i - 1].item.kind != .Field)
+                                tmp.items[i - 1].item.tag = tmp.items[i].item.kind;
+                        }
+                    }
+                },
+            }
+            if (!should_remove)
+                i += 1
+            else {
+                var j = i + 1;
+                while (j < tmp.len) : (j += 1)
+                    if (tmp.items[j].depth <= tmp.items[i].depth) break else tmp.items[j].depth -= 1;
+                _ = tmp.orderedRemove(i);
+            }
+        }
         decls = tmp.items[0..tmp.len];
     }
 
+    var cur_path: []usize = &[_]usize{};
     for (decls) |*list_entry, i| {
         const this_decl = list_entry.item;
         const ranges = (try rangesFor(this_decl, intel.src)) orelse
@@ -99,9 +103,45 @@ fn srcFileSymbols(comptime T: type, mem: *std.heap.ArenaAllocator, src_file_abs_
                 .detail = sym_hint,
                 .selectionRange = ranges.brief orelse ranges.name orelse ranges.full,
                 .range = ranges.full,
-                .children = null, // try mem.allocator.alloc(T, this_decl.sub_decls.len),
+                .children = &[_]T{},
             };
-        try results.append(this_sym);
+
+        if (!hierarchical)
+            try results.append(this_sym)
+        else if (list_entry.parent) |parent_decl_ptr| {
+            std.debug.warn("{}\n", .{src_file_abs_path});
+            const depth_diff = @intCast(isize, list_entry.depth) - @intCast(isize, decls[i - 1].depth);
+            var dst: *T = &results.items[cur_path[0]];
+            var i_path: usize = 1;
+            if (depth_diff == 0) {
+                // append to last-before-last children
+                // modify last path with index from above
+                while (i_path < cur_path.len - 1) : (i_path += 1)
+                    dst = &dst.children.?[cur_path[i_path]];
+                dst.children = try zag.mem.dupeAppend(&mem.allocator, dst.children.?, this_sym);
+                cur_path[cur_path.len - 1] = dst.children.?.len - 1;
+            } else if (depth_diff == 1) {
+                // append to last-in-path children
+                // append to path a 0
+                while (i_path < cur_path.len) : (i_path += 1)
+                    dst = &dst.children.?[cur_path[i_path]];
+                dst.children = try zag.mem.dupeAppend(&mem.allocator, dst.children.?, this_sym);
+                std.debug.assert(dst.children.?.len == 1);
+                cur_path = try zag.mem.dupeAppend(&mem.allocator, cur_path, 0);
+            } else if (depth_diff < 0) {
+                // remove n from path
+                // append to children
+                const until = (cur_path.len - 1) - @intCast(usize, std.math.absInt(depth_diff) catch unreachable);
+                while (i_path < until) : (i_path += 1)
+                    dst = &dst.children.?[cur_path[i_path]];
+                dst.children = try zag.mem.dupeAppend(&mem.allocator, dst.children.?, this_sym);
+                cur_path = try zag.mem.dupeAppend(&mem.allocator, cur_path[0..i_path], dst.children.?.len - 1);
+            } else
+                unreachable;
+        } else {
+            try results.append(this_sym);
+            cur_path = try zag.mem.dupeAppend(&mem.allocator, ([0]usize{})[0..], results.len - 1);
+        }
     }
 
     return results.toSlice();
@@ -109,7 +149,7 @@ fn srcFileSymbols(comptime T: type, mem: *std.heap.ArenaAllocator, src_file_abs_
 
 pub fn onSymbolsForDocument(ctx: Server.Ctx(DocumentSymbolParams)) !Result(?DocumentSymbols) {
     const src_file_abs_path = lspUriToFilePath(ctx.value.textDocument.uri);
-    const hierarchical = false; // ctx.inst.initialized.?.capabilities.textDocument.?.documentSymbol.?.hierarchicalDocumentSymbolSupport orelse false;
+    const hierarchical = ctx.inst.initialized.?.capabilities.textDocument.?.documentSymbol.?.hierarchicalDocumentSymbolSupport orelse false;
     return Result(?DocumentSymbols){
         .ok = if (hierarchical)
             .{ .hierarchy = try srcFileSymbols(DocumentSymbol, ctx.memArena(), src_file_abs_path, null) }
