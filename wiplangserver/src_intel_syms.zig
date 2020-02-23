@@ -2,8 +2,10 @@ usingnamespace @import("./_usingnamespace.zig");
 
 fn srcFileSymbols(comptime T: type, mem: *std.heap.ArenaAllocator, src_file_abs_path: Str, force_hint: ?Str) ![]T {
     const hierarchical = (T == DocumentSymbol);
-    const intel = (try zsess.src_intel.fileSpecificIntelCopy(src_file_abs_path, mem)) orelse
+    const intel_shared = (try zsess.src_intel.fileSpecificIntelLocked(src_file_abs_path, mem)) orelse
         return &[_]T{};
+    defer intel_shared.held.release();
+    const intel = intel_shared.item;
     const decls = try intel.decls.toOrderedList(null);
     var results = try std.ArrayList(T).initCapacity(&mem.allocator, decls.len);
 
@@ -151,8 +153,36 @@ pub fn onSymbolsForWorkspace(ctx: Server.Ctx(WorkspaceSymbolParams)) !Result(?[]
     var symbols = try std.ArrayList(SymbolInformation).initCapacity(ctx.mem, 64 * 1024);
     var src_file_abs_paths = try zsess.src_files.allCurrentlyTrackedSrcFileAbsPaths(ctx.mem);
     for (src_file_abs_paths) |src_file_abs_path| {
-        var syms = try srcFileSymbols(SymbolInformation, ctx.memArena(), src_file_abs_path, std.fs.path.dirname(src_file_abs_path) orelse ".");
-        try symbols.appendSlice(syms);
+        const src_file_uri = try std.fmt.allocPrint(ctx.mem, "file://{s}", .{src_file_abs_path});
+        const sym_cont = std.fs.path.dirname(src_file_abs_path) orelse ".";
+        const intel_shared = (try zsess.src_intel.fileSpecificIntelLocked(src_file_abs_path, ctx.memArena())) orelse
+            continue;
+        defer intel_shared.held.release();
+        const intel = intel_shared.item;
+        for (intel.decls.all_nodes.items[0..intel.decls.all_nodes.len]) |*node, i| {
+            const this_decl = &node.payload;
+
+            const sym_kind = switch (this_decl.tag orelse this_decl.kind) {
+                else => continue,
+                .Fn => |fn_info| if (fn_info.returns_type) SymbolKind.TypeParameter else SymbolKind.Function,
+                .Struct => SymbolKind.Struct,
+                .Union => SymbolKind.Null,
+                .Enum => SymbolKind.Enum,
+                .IdentConst => if (node.parent == null) SymbolKind.Constant else continue,
+                .IdentVar => if (node.parent == null) SymbolKind.Variable else continue,
+            };
+
+            if (this_decl.pos.name) |pos_name|
+                try symbols.append(.{
+                    .name = try std.mem.dupe(ctx.mem, u8, intel.src[pos_name.start..pos_name.end]),
+                    .kind = sym_kind,
+                    .containerName = sym_cont,
+                    .location = .{
+                        .uri = src_file_uri,
+                        .range = (try Range.initFromResliced(intel.src, pos_name.start, pos_name.end)) orelse continue,
+                    },
+                });
+        }
     }
     const time_taken = std.time.milliTimestamp() - start_time;
     logToStderr("WSS {}\t{}\n", .{ time_taken, symbols.len });
