@@ -194,9 +194,9 @@ fn onRename(ctx: Server.Ctx(RenameParams)) !Result(?WorkspaceEdit) {
     return Result(?WorkspaceEdit){ .ok = null };
 }
 
-fn onRenamePrep(ctx: Server.Ctx(TextDocumentPositionParams)) !Result(?RenamePrep) {
-    const src_file_uri = ctx.value.textDocument.uri;
-    if (try utils.PseudoNameHelper.init(ctx.mem, src_file_uri, ctx.value.position)) |name_helper|
+fn onRenamePrep(ctx: Server.Ctx(PrepareRenameParams)) !Result(?RenamePrep) {
+    const src_file_uri = ctx.value.TextDocumentPositionParams.textDocument.uri;
+    if (try utils.PseudoNameHelper.init(ctx.mem, src_file_uri, ctx.value.TextDocumentPositionParams.position)) |name_helper|
         if (try Range.initFromResliced(name_helper.src, name_helper.word_start, name_helper.word_end)) |range| {
             return Result(?RenamePrep){ .ok = .{ .augmented = .{ .placeholder = "Hint text goes here.", .range = range } } };
         };

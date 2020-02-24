@@ -2,7 +2,7 @@ const std = @import("std");
 usingnamespace @import("../../zag/zag.zig");
 const jsonic = @import("../../jsonic/jsonic.zig");
 
-// TODO: catch up on spec changes since last check of: 06 Feb 2020
+// TODO: catch up on spec changes since last check of: 24 Feb 2020
 // https://microsoft.github.io/language-server-protocol/specifications/specification-current/
 // https://github.com/Microsoft/language-server-protocol/blob/gh-pages/_specifications/specification-3-15.md
 
@@ -384,6 +384,9 @@ pub const ClientCapabilities = struct {
     } = null,
     textDocument: ?TextDocumentClientCapabilities = null,
     experimental: ?jsonic.AnyValue = null,
+    window: ?struct {
+        workDoneProgress: ?bool = null,
+    } = null,
 
     pub const ExecuteCommandClientCapabilities = struct {
         dynamicRegistration: ?bool = null,
@@ -1206,6 +1209,10 @@ pub const RenameParams = struct {
     TextDocumentPositionParams: TextDocumentPositionParams,
     WorkDoneProgressParams: WorkDoneProgressParams,
     newName: Str,
+};
+
+pub const PrepareRenameParams = struct {
+    TextDocumentPositionParams: TextDocumentPositionParams,
 };
 
 pub const FoldingRangeParams = struct {

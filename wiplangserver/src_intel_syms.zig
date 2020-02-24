@@ -2,7 +2,7 @@ usingnamespace @import("./_usingnamespace.zig");
 
 fn srcFileSymbols(comptime T: type, mem: *std.heap.ArenaAllocator, src_file_abs_path: Str, force_hint: ?Str) ![]T {
     const hierarchical = (T == DocumentSymbol);
-    const intel_shared = (try zsess.src_intel.fileSpecificIntelLocked(src_file_abs_path, mem)) orelse
+    const intel_shared = (try zsess.src_intel.fileSpecificIntelLocked(mem, src_file_abs_path, true)) orelse
         return &[_]T{};
     defer intel_shared.held.release();
     const intel = intel_shared.item;
@@ -155,7 +155,7 @@ pub fn onSymbolsForWorkspace(ctx: Server.Ctx(WorkspaceSymbolParams)) !Result(?[]
     for (src_file_abs_paths) |src_file_abs_path| {
         const src_file_uri = try std.fmt.allocPrint(ctx.mem, "file://{s}", .{src_file_abs_path});
         const sym_cont = std.fs.path.dirname(src_file_abs_path) orelse ".";
-        const intel_shared = (try zsess.src_intel.fileSpecificIntelLocked(src_file_abs_path, ctx.memArena())) orelse
+        const intel_shared = (try zsess.src_intel.fileSpecificIntelLocked(ctx.memArena(), src_file_abs_path, false)) orelse
             continue;
         defer intel_shared.held.release();
         const intel = intel_shared.item;

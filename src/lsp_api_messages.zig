@@ -76,7 +76,7 @@ pub const api_server_side = Spec{
         textDocument_rangeFormatting: fn (DocumentRangeFormattingParams) ?[]TextEdit,
         textDocument_onTypeFormatting: fn (DocumentOnTypeFormattingParams) ?[]TextEdit,
         textDocument_rename: fn (RenameParams) ?WorkspaceEdit,
-        textDocument_prepareRename: fn (TextDocumentPositionParams) ?RenamePrep,
+        textDocument_prepareRename: fn (PrepareRenameParams) ?RenamePrep,
         textDocument_foldingRange: fn (FoldingRangeParams) ?[]FoldingRange,
         textDocument_selectionRange: fn (SelectionRangeParams) ?[]SelectionRange,
     },

@@ -73,12 +73,7 @@ pub fn onFileBufOpened(ctx: Server.Ctx(DidOpenTextDocumentParams)) !void {
                 _ = try src_files_owned_by_client.versions.put(src_file_id, null);
     }
 
-    var todo = &[_]SrcFiles.EnsureTracked{
-        .{
-            .absolute_path = src_file_abs_path,
-            .force_reload = true,
-        },
-    };
+    var todo = &[_]SrcFiles.EnsureTracked{.{ .absolute_path = src_file_abs_path, .force_reload = true }};
     if (had_file_bufs_opened_event_yet)
         try zsess.workers.src_files_gatherer.base.prependJobs(todo)
     else { // fast-track the very first one as it's the currently-opened buffer on session start
@@ -118,10 +113,6 @@ pub fn onFileClosed(ctx: Server.Ctx(DidCloseTextDocumentParams)) !void {
 pub fn onFileBufEdited(ctx: Server.Ctx(DidChangeTextDocumentParams)) !void {
     const src_file_abs_path = lspUriToFilePath(ctx.value.textDocument.TextDocumentIdentifier.uri);
     const lock = src_files_owned_by_client.lock();
-    const cur_src = src_files_owned_by_client.live_bufs.get(src_file_abs_path) orelse {
-        lock.release();
-        return;
-    };
     defer {
         lock.release();
         if (zsess.src_files.getByFullPath(src_file_abs_path)) |src_file| {
@@ -132,6 +123,7 @@ pub fn onFileBufEdited(ctx: Server.Ctx(DidChangeTextDocumentParams)) !void {
     const src_file_id = SrcFile.id(src_file_abs_path);
     zsess.workers.src_files_reloader.base.cancelPendingEnqueuedJob(src_file_id);
     zsess.workers.src_files_refresh_intel.base.cancelPendingEnqueuedJob(src_file_id);
+    zsess.workers.src_files_refresh_issues.base.cancelPendingEnqueuedJob(src_file_id);
     var drop_from_live_mode = false;
     actual_work: {
         if (ctx.value.contentChanges.len == 0)
@@ -140,6 +132,7 @@ pub fn onFileBufEdited(ctx: Server.Ctx(DidChangeTextDocumentParams)) !void {
             try src_files_owned_by_client.live_bufs.set(src_file_abs_path, ctx.value.
                 contentChanges[ctx.value.contentChanges.len - 1].text)
         else if (sync_kind == .Incremental) {
+            const cur_src = src_files_owned_by_client.live_bufs.get(src_file_abs_path) orelse return;
             var buf_len: usize = cur_src.len;
             var capacity = buf_len;
             for (ctx.value.contentChanges) |*change|
