@@ -62,8 +62,7 @@ fn onDirsEncountered(srv: *Server, mem: *std.mem.Allocator, workspace_folder_uri
 pub fn onFileBufOpened(ctx: Server.Ctx(DidOpenTextDocumentParams)) !void {
     const src_file_abs_path = lspUriToFilePath(ctx.value.textDocument.uri);
     const src_file_id = SrcFile.id(src_file_abs_path);
-    zsess.workers.src_files_refresh_intel.base.cancelPendingEnqueuedJob(src_file_id);
-    zsess.workers.src_files_reloader.base.cancelPendingEnqueuedJob(src_file_id);
+    zsess.cancelPendingEnqueuedSrcFileRefreshJobs(src_file_id, true, true, true);
     {
         const lock = src_files_owned_by_client.lock();
         defer lock.release();
@@ -93,8 +92,7 @@ pub fn onFileBufOpened(ctx: Server.Ctx(DidOpenTextDocumentParams)) !void {
 pub fn onFileClosed(ctx: Server.Ctx(DidCloseTextDocumentParams)) !void {
     const src_file_abs_path = lspUriToFilePath(ctx.value.textDocument.uri);
     const src_file_id = SrcFile.id(src_file_abs_path);
-    zsess.workers.src_files_refresh_intel.base.cancelPendingEnqueuedJob(src_file_id);
-    zsess.workers.src_files_reloader.base.cancelPendingEnqueuedJob(src_file_id);
+    zsess.cancelPendingEnqueuedSrcFileRefreshJobs(src_file_id, true, true, true);
     {
         const lock = src_files_owned_by_client.lock();
         defer lock.release();
@@ -121,9 +119,7 @@ pub fn onFileBufEdited(ctx: Server.Ctx(DidChangeTextDocumentParams)) !void {
         }
     }
     const src_file_id = SrcFile.id(src_file_abs_path);
-    zsess.workers.src_files_reloader.base.cancelPendingEnqueuedJob(src_file_id);
-    zsess.workers.src_files_refresh_intel.base.cancelPendingEnqueuedJob(src_file_id);
-    zsess.workers.src_files_refresh_issues.base.cancelPendingEnqueuedJob(src_file_id);
+    zsess.cancelPendingEnqueuedSrcFileRefreshJobs(src_file_id, true, true, true);
     var drop_from_live_mode = false;
     actual_work: {
         if (ctx.value.contentChanges.len == 0)
@@ -185,10 +181,8 @@ pub fn onFileBufSaved(ctx: Server.Ctx(DidSaveTextDocumentParams)) !void {
     const src_file_abs_path = lspUriToFilePath(ctx.value.textDocument.uri);
     const force_reload = !src_files_watcher_active;
     const src_file_id = SrcFile.id(src_file_abs_path);
-    if (force_reload) {
-        zsess.workers.src_files_reloader.base.cancelPendingEnqueuedJob(src_file_id);
-        zsess.workers.src_files_refresh_intel.base.cancelPendingEnqueuedJob(src_file_id);
-    }
+    if (force_reload)
+        zsess.cancelPendingEnqueuedSrcFileRefreshJobs(src_file_id, true, true, true);
     if (ctx.value.text) |new_src| {
         const lock = src_files_owned_by_client.lock();
         defer lock.release();
@@ -204,21 +198,14 @@ pub fn onFileBufSaved(ctx: Server.Ctx(DidSaveTextDocumentParams)) !void {
 }
 
 pub fn onFileEvents(ctx: Server.Ctx(DidChangeWatchedFilesParams)) !void {
-    var src_file_ids = try ctx.mem.alloc(u64, ctx.value.changes.len);
-    var src_file_abs_paths = try ctx.mem.alloc(Str, ctx.value.changes.len);
-    for (ctx.value.changes) |_, i| {
-        src_file_abs_paths[i] = lspUriToFilePath(ctx.value.changes[i].uri);
-        src_file_ids[i] = SrcFile.id(src_file_abs_paths[i]);
-    }
-    zsess.workers.src_files_reloader.base.cancelPendingEnqueuedJobs(src_file_ids);
-    zsess.workers.src_files_refresh_intel.base.cancelPendingEnqueuedJobs(src_file_ids);
     var jobs = try std.ArrayList(SrcFiles.EnsureTracked).initCapacity(ctx.mem, ctx.value.changes.len);
     {
         const lock = src_files_owned_by_client.lock();
         defer lock.release();
-        for (ctx.value.changes) |file_event, i| {
-            const currently_owned_by_client = (null != src_files_owned_by_client.live_bufs.get(src_file_abs_paths[i]));
-            try jobs.append(.{ .absolute_path = src_file_abs_paths[i], .force_reload = !currently_owned_by_client });
+        for (ctx.value.changes) |*file_event, i| {
+            const src_file_abs_path = lspUriToFilePath(file_event.uri);
+            const force_reload = (null == src_files_owned_by_client.live_bufs.get(src_file_abs_path));
+            try jobs.append(.{ .absolute_path = src_file_abs_path, .force_reload = force_reload });
         }
     }
     try zsess.workers.src_files_gatherer.base.appendJobs(jobs.toSlice());

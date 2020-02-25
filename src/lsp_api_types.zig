@@ -18,8 +18,8 @@ pub const CancelParams = struct {
 pub const DocumentUri = Str;
 
 pub const Position = struct {
-    line: isize,
-    character: isize,
+    line: usize,
+    character: usize,
 
     pub fn fromByteIndexIn(string: Str, index: usize) !?Position {
         if (index < string.len) {
@@ -93,9 +93,6 @@ pub const Range = struct {
                 }
             }
         }
-        // if (try Position.fromByteIndexIn(string, index_start)) |start|
-        //     if (try Position.fromByteIndexIn(string, index_end)) |end|
-        //         return Range{ .start = start, .end = end };
         return null;
     }
 

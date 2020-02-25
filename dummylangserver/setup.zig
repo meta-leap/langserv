@@ -287,7 +287,7 @@ fn onExecuteCommand(ctx: Server.Ctx(ExecuteCommandParams)) !Result(?jsonic.AnyVa
 fn onCodeLenses(ctx: Server.Ctx(CodeLensParams)) !Result(?[]CodeLens) {
     var lenses = try ctx.mem.alloc(CodeLens, 3);
     for (lenses) |_, i| {
-        lenses[i].range = .{ .start = .{ .line = 2 + 2 * @intCast(isize, i), .character = 6 }, .end = .{ .line = 2 + 2 * @intCast(isize, i), .character = 42 } };
+        lenses[i].range = .{ .start = .{ .line = 2 + 2 * i, .character = 6 }, .end = .{ .line = 2 + 2 * i, .character = 42 } };
         lenses[i].command = .{
             .title = try std.fmt.allocPrint(ctx.mem, "Codelens #{d}", .{i}),
             .command = "dummylangserver.infomsg",
