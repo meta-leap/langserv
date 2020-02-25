@@ -18,7 +18,12 @@ pub fn onFreshIssuesToPublish(mem_temp: *std.heap.ArenaAllocator, issues: std.St
                 payload.diagnostics[i] = .{
                     .range = .{ .start = .{ .line = issue.pos_info[0], .character = issue.pos_info[1] }, .end = .{ .line = issue.pos_info[2], .character = issue.pos_info[3] } },
                     .message = issue.message,
-                    .source = @tagName(issue.scope),
+                    .source = switch (issue.scope) {
+                        .load => "(file I/O)",
+                        .parse => "(syntax)",
+                        .zig_test => "zig test",
+                        .zig_build => "zig build",
+                    },
                     .severity = switch (issue.scope) {
                         .load => .Warning,
                         .parse => .Information,
@@ -27,6 +32,10 @@ pub fn onFreshIssuesToPublish(mem_temp: *std.heap.ArenaAllocator, issues: std.St
                     },
                 };
         }
-        try @import("./main.zig").server.api.notify(.textDocument_publishDiagnostics, payload);
+
+        var srv = @import("./main.zig").server;
+        const lock = srv.mutex.acquire();
+        defer lock.release();
+        try srv.api.notify(.textDocument_publishDiagnostics, payload);
     }
 }

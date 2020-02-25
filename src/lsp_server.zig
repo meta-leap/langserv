@@ -15,6 +15,7 @@ pub const Server = struct {
         .serverInfo = .{ .name = "unnamed" },
     },
     initialized: ?InitializeParams = null,
+    mutex: std.Mutex = std.Mutex.init(),
     exit_notification_received_from_client: bool = false,
     onOutput: fn (Str) anyerror!void,
     api: LspApi = LspApi{
@@ -59,6 +60,8 @@ pub const Server = struct {
 
         // const start = std.time.milliTimestamp();
         while (try in_stream_splitter.next()) |headers_and_body| {
+            const lock = me.mutex.acquire();
+            defer lock.release();
             const msg_body = headers_and_body.body_part;
             // std.debug.warn("\n\n>>>>>>{s}>>>>>>\n\n", .{msg_body});
             me.api.incoming(msg_body) catch |err| switch (err) {

@@ -1,12 +1,8 @@
 usingnamespace @import("./_usingnamespace.zig");
 
 const stdout = std.io.getStdOut();
-var stdio_lock = std.Mutex.init();
 
 fn stdoutWrite(out_bytes: Str) !void {
-    const lock = stdio_lock.acquire();
-    defer lock.release();
-
     try stdout.write(out_bytes);
     if (std.builtin.mode == .Debug)
         mem_alloc_debug.report("\n");
