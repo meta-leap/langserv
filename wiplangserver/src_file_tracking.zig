@@ -195,6 +195,7 @@ pub fn onFileBufSaved(ctx: Server.Ctx(DidSaveTextDocumentParams)) !void {
             .force_reload = force_reload,
         },
     });
+    try zsess.workers.build_runs.base.appendJobs(&[_]u64{src_file_id});
 }
 
 pub fn onFileEvents(ctx: Server.Ctx(DidChangeWatchedFilesParams)) !void {
