@@ -107,7 +107,7 @@ pub const Range = struct {
         return range;
     }
 
-    pub fn indices(me: *const Range, string: Str) !?[2]usize {
+    pub fn indicesIn(me: *const Range, string: Str) !?[2]usize {
         var cur = Position{ .line = 0, .character = 0 };
         var idx_start: ?usize = null;
         var idx_end: ?usize = null;
@@ -123,7 +123,9 @@ pub const Range = struct {
                 cur.line += 1;
                 cur.character = 0;
                 i += 1;
-            } else {
+            } else if (cur.line < me.start.line)
+                i += 1
+            else {
                 cur.character += 1;
                 i += try std.unicode.utf8ByteSequenceLength(string[i]);
             }
@@ -136,14 +138,14 @@ pub const Range = struct {
     }
 
     pub fn constStr(me: *const Range, string: Str) !?Str {
-        return if (try me.indices(string)) |start_and_end|
+        return if (try me.indicesIn(string)) |start_and_end|
             string[start_and_end[0]..start_and_end[1]]
         else
             null;
     }
 
     pub fn mutBytes(me: *const Range, string: []u8) !?[]u8 {
-        return if (try me.indices(string)) |start_and_end|
+        return if (try me.indicesIn(string)) |start_and_end|
             string[start_and_end[0]..start_and_end[1]]
         else
             null;
