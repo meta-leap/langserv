@@ -21,24 +21,21 @@ pub const Position = struct {
     line: usize,
     character: usize,
 
-    pub fn fromByteIndexIn(string: Str, index: usize) !?Position {
-        if (index < string.len) {
-            var cur = Position{ .line = 0, .character = 0 };
-            var i: usize = 0;
-            while (i < string.len) {
-                if (i >= index)
-                    return cur;
-                if (string[i] == '\n') {
-                    cur.line += 1;
-                    cur.character = 0;
-                    i += 1;
-                } else {
-                    cur.character += 1;
-                    i += try std.unicode.utf8ByteSequenceLength(string[i]);
-                }
-            }
+    pub fn fromByteIndexIn(string: Str, index: usize) !Position {
+        var cur = Position{ .line = 0, .character = 0 };
+
+        var i: usize = 0;
+        var i_last_line: usize = 0;
+        while (i < string.len and i <= index) : (i += 1) if (string[i] == '\n') {
+            cur.line += 1;
+            i_last_line = i;
+        };
+        i = i_last_line + 1;
+        while (i < string.len and i < index) {
+            cur.character += 1;
+            i += try std.unicode.utf8ByteSequenceLength(string[i]);
         }
-        return null;
+        return cur;
     }
 
     pub fn toByteIndexIn(me: *const Position, string: Str) !?usize {
@@ -49,9 +46,10 @@ pub const Position = struct {
                 return i;
             if (string[i] == '\n') {
                 cur.line += 1;
-                cur.character = 0;
                 i += 1;
-            } else {
+            } else if (cur.line < me.line)
+                i += 1
+            else {
                 cur.character += 1;
                 i += try std.unicode.utf8ByteSequenceLength(string[i]);
             }
@@ -64,36 +62,49 @@ pub const Range = struct {
     start: Position,
     end: Position,
 
-    pub fn initFrom(string: Str) !?Range {
-        if (try Position.fromByteIndexIn(string, string.len - 1)) |last_pos|
-            return Range{ .start = .{ .line = 0, .character = 0 }, .end = last_pos };
-        return null;
+    pub fn initFrom(string: Str) !Range {
+        const last_pos = try Position.fromByteIndexIn(string, string.len - 1);
+        return Range{ .start = .{ .line = 0, .character = 0 }, .end = last_pos };
     }
 
-    pub fn initFromResliced(string: Str, index_start: usize, index_end: usize) !?Range {
-        if (index_start < string.len and index_end < string.len and index_start <= index_end) {
-            var pos_start: ?Position = null;
-            var cur = Position{ .line = 0, .character = 0 };
-            var i: usize = 0;
-            while (i < string.len) {
-                if (i >= index_end and pos_start != null) {
-                    return Range{ .start = pos_start.?, .end = cur };
-                } else if (i >= index_start and pos_start == null) {
-                    pos_start = cur;
-                    if (index_start == index_end)
-                        return Range{ .start = pos_start.?, .end = pos_start.? };
-                }
-                if (string[i] == '\n') {
-                    cur.line += 1;
-                    cur.character = 0;
-                    i += 1;
-                } else {
-                    cur.character += 1;
-                    i += try std.unicode.utf8ByteSequenceLength(string[i]);
-                }
+    pub fn initFromResliced(string: Str, index_start: usize, index_end: usize) !Range {
+        if (index_start == index_end) {
+            const pos = try Position.fromByteIndexIn(string, index_start);
+            return Range{ .start = pos, .end = pos };
+        }
+        std.debug.assert(index_start < index_end);
+
+        var range = Range{ .start = .{ .line = 0, .character = 0 }, .end = .{ .line = 0, .character = 0 } };
+        var i: usize = 0;
+        var i_last_line: usize = 0;
+
+        while (i < string.len and i <= index_start) : (i += 1) {
+            if (string[i] == '\n') {
+                range.start.line += 1;
+                range.end.line += 1;
+                i_last_line = i;
             }
         }
-        return null;
+        i = i_last_line + 1;
+        while (i < string.len and i < index_start) {
+            range.start.character += 1;
+            i += try std.unicode.utf8ByteSequenceLength(string[i]);
+        }
+
+        i = i_last_line + 1;
+        while (i < string.len and i <= index_end) : (i += 1) {
+            if (string[i] == '\n') {
+                range.end.line += 1;
+                i_last_line = i;
+            }
+        }
+        i = i_last_line + 1;
+        while (i < string.len and i < index_end) {
+            range.end.character += 1;
+            i += try std.unicode.utf8ByteSequenceLength(string[i]);
+        }
+
+        return range;
     }
 
     pub fn indices(me: *const Range, string: Str) !?[2]usize {

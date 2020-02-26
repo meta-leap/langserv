@@ -149,7 +149,7 @@ fn onFormat(mem: *std.mem.Allocator, src_file_uri: Str, src_range: ?Range) !Resu
         ret_range = range;
         src = (try range.mutBytes(src)) orelse return Result(?[]TextEdit){ .ok = null };
     } else
-        ret_range = (try Range.initFrom(src)) orelse return Result(?[]TextEdit){ .ok = null };
+        ret_range = try Range.initFrom(src);
 
     for (src) |char, i| {
         if (char == ' ')
@@ -197,8 +197,13 @@ fn onRename(ctx: Server.Ctx(RenameParams)) !Result(?WorkspaceEdit) {
 fn onRenamePrep(ctx: Server.Ctx(PrepareRenameParams)) !Result(?RenamePrep) {
     const src_file_uri = ctx.value.TextDocumentPositionParams.textDocument.uri;
     if (try utils.PseudoNameHelper.init(ctx.mem, src_file_uri, ctx.value.TextDocumentPositionParams.position)) |name_helper|
-        if (try Range.initFromResliced(name_helper.src, name_helper.word_start, name_helper.word_end)) |range| {
-            return Result(?RenamePrep){ .ok = .{ .augmented = .{ .placeholder = "Hint text goes here.", .range = range } } };
+        return Result(?RenamePrep){
+            .ok = .{
+                .augmented = .{
+                    .placeholder = "Hint text goes here.",
+                    .range = try Range.initFromResliced(name_helper.src, name_helper.word_start, name_helper.word_end),
+                },
+            },
         };
     return Result(?RenamePrep){ .ok = null };
 }
@@ -252,32 +257,31 @@ fn onExecuteCommand(ctx: Server.Ctx(ExecuteCommandParams)) !Result(?jsonic.AnyVa
                 const is_to_lower = std.mem.eql(u8, ctx.value.command, "dummylangserver.caselo");
                 if (is_to_upper or is_to_lower) {
                     var src = try cachedOrFreshSrc(ctx.mem, src_file_uri);
-                    if (try Range.initFrom(src)) |full_src_range| {
-                        for (src) |char, i| {
-                            if (is_to_lower and char >= 'A' and char <= 'Z')
-                                src[i] = char + 32
-                            else if (is_to_upper and char >= 'a' and char <= 'z')
-                                src[i] = char - 32;
-                        }
-
-                        var edits = try ctx.mem.alloc(TextEdit, 1);
-                        edits[0] = .{ .newText = utils.trimRight(src), .range = full_src_range };
-                        var edit = WorkspaceEdit{ .changes = std.StringHashMap([]TextEdit).init(ctx.mem) };
-                        _ = try edit.changes.?.put(src_file_uri, edits);
-
-                        try ctx.inst.api.request(.workspace_applyEdit, {}, ApplyWorkspaceEditParams{ .edit = edit }, struct {
-                            pub fn then(state: void, resp: Server.Ctx(Result(ApplyWorkspaceEditResponse))) error{}!void {
-                                switch (resp.value) {
-                                    .err => |err| std.debug.warn("Requested edit not applied by client: {}\n", .{err}),
-                                    .ok => |outcome| if (!outcome.applied)
-                                        if (outcome.failureReason) |err|
-                                            std.debug.warn("Requested edit not applied by client: {}\n", .{err}),
-                                }
-                            }
-                        });
-
-                        return Result(?jsonic.AnyValue){ .ok = null };
+                    const full_src_range = try Range.initFrom(src);
+                    for (src) |char, i| {
+                        if (is_to_lower and char >= 'A' and char <= 'Z')
+                            src[i] = char + 32
+                        else if (is_to_upper and char >= 'a' and char <= 'z')
+                            src[i] = char - 32;
                     }
+
+                    var edits = try ctx.mem.alloc(TextEdit, 1);
+                    edits[0] = .{ .newText = utils.trimRight(src), .range = full_src_range };
+                    var edit = WorkspaceEdit{ .changes = std.StringHashMap([]TextEdit).init(ctx.mem) };
+                    _ = try edit.changes.?.put(src_file_uri, edits);
+
+                    try ctx.inst.api.request(.workspace_applyEdit, {}, ApplyWorkspaceEditParams{ .edit = edit }, struct {
+                        pub fn then(state: void, resp: Server.Ctx(Result(ApplyWorkspaceEditResponse))) error{}!void {
+                            switch (resp.value) {
+                                .err => |err| std.debug.warn("Requested edit not applied by client: {}\n", .{err}),
+                                .ok => |outcome| if (!outcome.applied)
+                                    if (outcome.failureReason) |err|
+                                        std.debug.warn("Requested edit not applied by client: {}\n", .{err}),
+                            }
+                        }
+                    });
+
+                    return Result(?jsonic.AnyValue){ .ok = null };
                 }
             },
         };
@@ -306,8 +310,7 @@ fn onSelectionRange(ctx: Server.Ctx(SelectionRangeParams)) !Result(?[]SelectionR
     for (ctx.value.positions) |pos, i| {
         ranges[i].parent = null;
         if (try utils.PseudoNameHelper.init(ctx.mem, src_file_uri, pos)) |name_helper|
-            ranges[i].range = (try Range.initFromResliced(name_helper.src, name_helper.word_start, name_helper.word_end)) orelse
-                return Result(?[]SelectionRange){ .ok = null }
+            ranges[i].range = try Range.initFromResliced(name_helper.src, name_helper.word_start, name_helper.word_end)
         else
             return Result(?[]SelectionRange){ .ok = null };
     }

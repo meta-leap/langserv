@@ -179,7 +179,7 @@ pub fn onSymbolsForWorkspace(ctx: Server.Ctx(WorkspaceSymbolParams)) !Result(?[]
                     .containerName = sym_cont,
                     .location = .{
                         .uri = src_file_uri,
-                        .range = (try Range.initFromResliced(intel.src, pos_name.start, pos_name.end)) orelse continue,
+                        .range = try Range.initFromResliced(intel.src, pos_name.start, pos_name.end),
                     },
                 });
         }
@@ -218,10 +218,7 @@ inline fn rangesFor(decl: *const SrcFile.Intel.Decl, in_src: Str) !?struct {
     }
 } {
     const TRet = @typeInfo(@typeInfo(@TypeOf(rangesFor).ReturnType).ErrorUnion.payload).Optional.child;
-    var ret = TRet{
-        .full = (try Range.initFromResliced(in_src, decl.
-            pos.full.start, decl.pos.full.end)) orelse return null,
-    };
+    var ret = TRet{ .full = try Range.initFromResliced(in_src, decl.pos.full.start, decl.pos.full.end) };
     if (decl.pos.name) |pos_name|
         ret.name = try Range.initFromResliced(in_src, pos_name.start, pos_name.end);
     if (decl.pos.brief) |pos_brief|

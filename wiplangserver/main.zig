@@ -1,15 +1,5 @@
 usingnamespace @import("./_usingnamespace.zig");
 
-const stdout = std.io.getStdOut();
-
-fn stdoutWrite(out_bytes: Str) !void {
-    try stdout.write(out_bytes);
-    // if (std.builtin.mode == .Debug)
-    //     mem_alloc_debug.report("\n");
-}
-
-pub var server = Server{ .onOutput = stdoutWrite };
-
 pub fn main() !u8 {
     defer if (std.builtin.mode == .Debug)
         mem_alloc_debug.report("\nExit:\t");

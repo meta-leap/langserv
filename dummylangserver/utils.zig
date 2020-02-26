@@ -20,7 +20,7 @@ pub fn gatherPseudoNameLocations(mem: *std.mem.Allocator, src_file_uri: Str, pos
         while (i < name_helper.src.len) {
             if (std.mem.indexOfPos(u8, name_helper.src, i, word)) |idx| {
                 i = idx + word.len;
-                try locs.append((try Range.initFromResliced(name_helper.src, idx, i)) orelse continue);
+                try locs.append((try Range.initFromResliced(name_helper.src, idx, i)));
             } else
                 break;
         }
@@ -39,22 +39,20 @@ pub const PseudoNameHelper = struct {
         var ret: PseudoNameHelper = undefined;
         ret.src = try cachedOrFreshSrc(mem, src_file_uri);
 
-        if (try Range.initFrom(ret.src)) |*range| {
-            ret.full_src_range = range.*;
-            if (try position.toByteIndexIn(ret.src)) |pos|
-                if ((ret.src[pos] >= 'a' and ret.src[pos] <= 'z') or (ret.src[pos] >= 'A' and ret.src[pos] <= 'Z')) {
-                    ret.word_start = pos;
-                    ret.word_end = pos;
-                    while (ret.word_end < ret.src.len and ((ret.src[ret.word_end] >= 'a' and ret.src[ret.word_end] <= 'z') or (ret.src[ret.word_end] >= 'A' and ret.src[ret.word_end] <= 'Z')))
-                        ret.word_end += 1;
-                    while (ret.word_start >= 0 and ((ret.src[ret.word_start] >= 'a' and ret.src[ret.word_start] <= 'z') or (ret.src[ret.word_start] >= 'A' and ret.src[ret.word_start] <= 'Z')))
-                        ret.word_start -= 1;
-                    ret.word_start += 1;
+        ret.full_src_range = try Range.initFrom(ret.src);
+        if (try position.toByteIndexIn(ret.src)) |pos|
+            if ((ret.src[pos] >= 'a' and ret.src[pos] <= 'z') or (ret.src[pos] >= 'A' and ret.src[pos] <= 'Z')) {
+                ret.word_start = pos;
+                ret.word_end = pos;
+                while (ret.word_end < ret.src.len and ((ret.src[ret.word_end] >= 'a' and ret.src[ret.word_end] <= 'z') or (ret.src[ret.word_end] >= 'A' and ret.src[ret.word_end] <= 'Z')))
+                    ret.word_end += 1;
+                while (ret.word_start >= 0 and ((ret.src[ret.word_start] >= 'a' and ret.src[ret.word_start] <= 'z') or (ret.src[ret.word_start] >= 'A' and ret.src[ret.word_start] <= 'Z')))
+                    ret.word_start -= 1;
+                ret.word_start += 1;
 
-                    if (ret.word_start < ret.word_end)
-                        return ret;
-                };
-        }
+                if (ret.word_start < ret.word_end)
+                    return ret;
+            };
         return null;
     }
 };

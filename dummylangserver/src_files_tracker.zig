@@ -84,12 +84,11 @@ fn pushDiagnostics(mem: *std.mem.Allocator, srv: *Server, src_file_uri: Str, src
         var i: usize = 0;
         while (std.mem.indexOfPos(u8, src, i, "file://")) |idx| {
             i = idx + "file://".len;
-            if (try Range.initFromResliced(src, idx, i)) |range|
-                try diags.append(Diagnostic{
-                    .range = range,
-                    .severity = .Warning,
-                    .message = "Local file path detected",
-                });
+            try diags.append(Diagnostic{
+                .range = try Range.initFromResliced(src, idx, i),
+                .severity = .Warning,
+                .message = "Local file path detected",
+            });
         }
     }
     try srv.api.notify(.textDocument_publishDiagnostics, PublishDiagnosticsParams{
