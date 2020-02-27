@@ -1,5 +1,15 @@
 usingnamespace @import("./_usingnamespace.zig");
 
+var build_progress_ongoing = false;
+
+pub fn onBuildRuns(situation: SrcFiles.OnBuildRuns) void {
+    switch (situation) {
+        .begun => {},
+        .ended => {},
+        .cur_build_dir => |build_dir_path| {},
+    }
+}
+
 pub fn onIssuePosCalc(mem_temp: *std.heap.ArenaAllocator, src: Str, tok_pos: [2]usize, kind: SrcFiles.Issue.PosInfoKind) ![]usize {
     const range = switch (kind) {
         .byte_offsets_0_based_range => try Range.initFromResliced(src, tok_pos[0], tok_pos[1]),

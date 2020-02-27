@@ -9,6 +9,7 @@ pub fn main() !u8 {
     SrcFile.loadFromPath = loadSrcFileEitherFromFsOrFromLiveBufCache;
     SrcFiles.onIssuesRefreshed = onFreshIssuesToPublish;
     SrcFiles.onIssuePosCalc = onIssuePosCalc;
+    SrcFiles.onBuildRuns = onBuildRuns;
 
     try zsess.initAndStart(mem_alloc, "/home/_/tmp");
     defer zsess.stopAndDeinit();
