@@ -19,7 +19,7 @@ pub fn onFreshIssuesToPublish(mem_temp: *std.heap.ArenaAllocator, issues: std.St
             .uri = try std.fmt.allocPrint(&mem_temp.allocator, "file://{s}", .{path_and_issues.key}),
             .diagnostics = try mem_temp.allocator.alloc(Diagnostic, path_and_issues.value.len),
         };
-        for (path_and_issues.value) |*issue, i|
+        for (path_and_issues.value) |*issue, i| {
             payload.diagnostics[i] = .{
                 .range = .{ .start = .{ .line = issue.pos_info[0], .character = issue.pos_info[1] }, .end = .{ .line = issue.pos_info[2], .character = issue.pos_info[3] } },
                 .message = issue.message,
@@ -34,6 +34,18 @@ pub fn onFreshIssuesToPublish(mem_temp: *std.heap.ArenaAllocator, issues: std.St
                     .zig_build => .Error,
                 },
             };
+            if (issue.relateds.len != 0) {
+                payload.diagnostics[i].relatedInformation = try mem_temp.allocator.alloc(DiagnosticRelatedInformation, issue.relateds.len);
+                for (issue.relateds) |*related, idx|
+                    payload.diagnostics[i].relatedInformation.?[idx] = .{
+                        .message = related.message,
+                        .location = .{
+                            .uri = try std.fmt.allocPrint(&mem_temp.allocator, "file://{s}", .{related.full_file_path}),
+                            .range = .{ .start = .{ .line = related.pos_info[0], .character = related.pos_info[1] }, .end = .{ .line = related.pos_info[2], .character = related.pos_info[3] } },
+                        },
+                    };
+            }
+        }
         try payloads.append(payload);
     }
 
