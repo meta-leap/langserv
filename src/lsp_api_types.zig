@@ -68,42 +68,34 @@ pub const Range = struct {
     }
 
     pub fn initFromResliced(string: Str, index_start: usize, index_end: usize) !Range {
-        if (index_start == index_end) {
-            const pos = try Position.fromByteIndexIn(string, index_start);
-            return Range{ .start = pos, .end = pos };
-        }
-        std.debug.assert(index_start < index_end);
-        if (1 > 0)
-            return Range{ .start = try Position.fromByteIndexIn(string, index_start), .end = try Position.fromByteIndexIn(string, index_end) };
-
         var range = Range{ .start = .{ .line = 0, .character = 0 }, .end = .{ .line = 0, .character = 0 } };
         var i: usize = 0;
-        var i_last_line: isize = -1;
+        var i_last_line: ?usize = null;
 
-        while (i < string.len and i <= index_start) : (i += 1) {
-            if (string[i] == '\n') {
-                range.start.line += 1;
-                range.end.line += 1;
-                i_last_line = @intCast(isize, i);
-            }
-        }
-        i = @intCast(usize, i_last_line + 1);
+        while (i < string.len and i < index_start) : (i += 1) if (string[i] == '\n') {
+            range.start.line += 1;
+            range.end.line += 1;
+            i_last_line = i;
+        };
+        i = if (i_last_line) |idx| idx + 1 else 0;
         while (i < string.len and i < index_start) {
             range.start.character += 1;
             i += try std.unicode.utf8ByteSequenceLength(string[i]);
         }
 
-        i = @intCast(usize, i_last_line + 1);
-        while (i < string.len and i <= index_end) : (i += 1) {
-            if (string[i] == '\n') {
+        if (index_end == index_start)
+            range.end.character = range.start.character
+        else {
+            i = if (i_last_line) |idx| idx + 1 else 0;
+            while (i < string.len and i < index_end) : (i += 1) if (string[i] == '\n') {
                 range.end.line += 1;
-                i_last_line = @intCast(isize, i);
+                i_last_line = i;
+            };
+            i = if (i_last_line) |idx| idx + 1 else 0;
+            while (i < string.len and i < index_end) {
+                range.end.character += 1;
+                i += try std.unicode.utf8ByteSequenceLength(string[i]);
             }
-        }
-        i = @intCast(usize, i_last_line + 1);
-        while (i < string.len and i < index_end) {
-            range.end.character += 1;
-            i += try std.unicode.utf8ByteSequenceLength(string[i]);
         }
 
         return range;
