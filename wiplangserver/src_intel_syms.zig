@@ -185,7 +185,7 @@ pub fn onSymbolsForWorkspace(ctx: Server.Ctx(WorkspaceSymbolParams)) !Result(?[]
         }
     }
     const time_taken = std.time.milliTimestamp() - start_time;
-    logToStderr("WSS {}\t{}\n", .{ time_taken, symbols.len });
+    logToStderr("WsS {}\t{}\n", .{ time_taken, symbols.len });
     return Result(?[]SymbolInformation){ .ok = symbols.toSlice() };
 }
 
