@@ -34,11 +34,6 @@ pub fn convertPosInfoToLspRange(mem_temp: *std.heap.ArenaAllocator, src: Str, to
     return make(&mem_temp.allocator, usize, .{ range.start.line, range.start.character, range.end.line, range.end.character });
 }
 
-pub fn convertPosInfoFromLspPos(mem_temp: *std.heap.ArenaAllocator, src: Str, pos_info: []usize, into_kind: SrcIntel.Location.PosInfoKind) !?usize {
-    switch (into_kind) {
-        else => return error.ToDo,
-        .byte_offsets_0_based_range => {
-            return (Position{ .line = pos_info[0], .character = pos_info[1] }).toByteIndexIn(src);
-        },
-    }
+pub fn convertPosInfoFromLspPos(mem_temp: *std.heap.ArenaAllocator, src: Str, pos_info: []usize) !?usize {
+    return (Position{ .line = pos_info[0], .character = pos_info[1] }).toByteIndexIn(src);
 }
