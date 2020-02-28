@@ -22,3 +22,23 @@ pub inline fn lspUriToFilePath(uri: Str) Str {
 pub inline fn logToStderr(comptime fmt: Str, args: var) void {
     std.debug.warn(fmt, args);
 }
+
+pub fn convertPosInfoToLspRange(mem_temp: *std.heap.ArenaAllocator, src: Str, tok_pos: [2]usize, from_kind: SrcIntel.Location.PosInfoKind) ![]usize {
+    const range = switch (from_kind) {
+        .byte_offsets_0_based_range => try Range.initFromResliced(src, tok_pos[0], tok_pos[1]),
+        .line_and_col_1_based_pos => pos2range: {
+            const pos = Position{ .line = tok_pos[0] - 1, .character = tok_pos[1] - 1 };
+            break :pos2range Range{ .start = pos, .end = pos };
+        },
+    };
+    return make(&mem_temp.allocator, usize, .{ range.start.line, range.start.character, range.end.line, range.end.character });
+}
+
+pub fn convertPosInfoFromLspPos(mem_temp: *std.heap.ArenaAllocator, src: Str, pos_info: []usize, into_kind: SrcIntel.Location.PosInfoKind) !?usize {
+    switch (into_kind) {
+        else => return error.ToDo,
+        .byte_offsets_0_based_range => {
+            return (Position{ .line = pos_info[0], .character = pos_info[1] }).toByteIndexIn(src);
+        },
+    }
+}

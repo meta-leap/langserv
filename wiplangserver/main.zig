@@ -8,8 +8,9 @@ pub fn main() !u8 {
     defer src_files_owned_by_client.deinit();
     SrcFile.loadFromPath = loadSrcFileEitherFromFsOrFromLiveBufCache;
     SrcFiles.onIssuesRefreshed = onFreshIssuesToPublish;
-    SrcFiles.onIssuePosCalc = onIssuePosCalc;
     SrcFiles.onBuildRuns = onBuildRuns;
+    SrcIntel.convertPosInfoToCustom = convertPosInfoToLspRange;
+    SrcIntel.convertPosInfoFromCustom = convertPosInfoFromLspPos;
 
     try zsess.initAndStart(mem_alloc, "/home/_/tmp");
     defer zsess.stopAndDeinit();

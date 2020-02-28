@@ -37,6 +37,10 @@ pub fn setupCapabilitiesAndHandlers(srv: *Server) void {
     srv.cfg.capabilities.workspaceSymbolProvider = .{ .enabled = true };
     srv.api.onRequest(.workspace_symbol, onSymbolsForWorkspace);
 
+    // LOCATION LOOKUPS
+    srv.cfg.capabilities.definitionProvider = .{ .enabled = true };
+    srv.api.onRequest(.textDocument_definition, onDefs);
+
     // AUTO-COMPLETE
     // srv.cfg.capabilities.completionProvider = .{
     //     .triggerCharacters = &[_]Str{"~"},

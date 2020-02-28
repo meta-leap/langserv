@@ -1,5 +1,22 @@
 usingnamespace @import("./_usingnamespace.zig");
 
+pub fn onDefs(ctx: Server.Ctx(DefinitionParams)) !Result(?Locations) {
+    const locs = try zsess.src_intel.lookup(ctx.memArena(), .Definitions, .{
+        .full_path = lspUriToFilePath(ctx.value.TextDocumentPositionParams.textDocument.uri),
+        .pos_info = &[2]usize{ ctx.value.TextDocumentPositionParams.position.line, ctx.value.TextDocumentPositionParams.position.character },
+    }, true);
+    const results: Locations = .{ .locations = try ctx.mem.alloc(Location, locs.len) };
+    for (locs) |*loc, i|
+        results.locations[i] = .{
+            .uri = try std.fmt.allocPrint(ctx.mem, "file://{s}", .{loc.full_path}),
+            .range = .{
+                .start = .{ .line = loc.pos_info[0], .character = loc.pos_info[1] },
+                .end = .{ .line = loc.pos_info[2], .character = loc.pos_info[3] },
+            },
+        };
+    return Result(?Locations){ .ok = results };
+}
+
 pub fn onHover(ctx: Server.Ctx(HoverParams)) !Result(?Hover) {
     const src_file_abs_path = lspUriToFilePath(ctx.value.TextDocumentPositionParams.textDocument.uri);
     const markdown = try std.fmt.allocPrint(ctx.mem, "Mock hover for:\n\n```zig\n{}\n```\n\n", .{ctx.

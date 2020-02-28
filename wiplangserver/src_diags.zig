@@ -1,16 +1,5 @@
 usingnamespace @import("./_usingnamespace.zig");
 
-pub fn onIssuePosCalc(mem_temp: *std.heap.ArenaAllocator, src: Str, tok_pos: [2]usize, kind: SrcFiles.Issue.PosInfoKind) ![]usize {
-    const range = switch (kind) {
-        .byte_offsets_0_based_range => try Range.initFromResliced(src, tok_pos[0], tok_pos[1]),
-        .line_and_col_1_based_pos => pos2range: {
-            const pos = Position{ .line = tok_pos[0] - 1, .character = tok_pos[1] - 1 };
-            break :pos2range Range{ .start = pos, .end = pos };
-        },
-    };
-    return make(&mem_temp.allocator, usize, .{ range.start.line, range.start.character, range.end.line, range.end.character });
-}
-
 pub fn onFreshIssuesToPublish(mem_temp: *std.heap.ArenaAllocator, issues: std.StringHashMap([]SrcFiles.Issue)) !void {
     var payloads = try std.ArrayList(PublishDiagnosticsParams).initCapacity(&mem_temp.allocator, issues.count());
     var iter = issues.iterator();
@@ -40,8 +29,8 @@ pub fn onFreshIssuesToPublish(mem_temp: *std.heap.ArenaAllocator, issues: std.St
                     payload.diagnostics[i].relatedInformation.?[idx] = .{
                         .message = related.message,
                         .location = .{
-                            .uri = try std.fmt.allocPrint(&mem_temp.allocator, "file://{s}", .{related.full_file_path}),
-                            .range = .{ .start = .{ .line = related.pos_info[0], .character = related.pos_info[1] }, .end = .{ .line = related.pos_info[2], .character = related.pos_info[3] } },
+                            .uri = try std.fmt.allocPrint(&mem_temp.allocator, "file://{s}", .{related.location.full_path}),
+                            .range = .{ .start = .{ .line = related.location.pos_info[0], .character = related.location.pos_info[1] }, .end = .{ .line = related.location.pos_info[2], .character = related.location.pos_info[3] } },
                         },
                     };
             }
