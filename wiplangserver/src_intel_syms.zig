@@ -8,6 +8,7 @@ fn srcFileSymbols(comptime T: type, mem: *std.heap.ArenaAllocator, src_file_abs_
     const intel = intel_shared.item;
     const decls = try intel.decls.toOrderedList(&mem.allocator, null);
     var results = try std.ArrayList(T).initCapacity(&mem.allocator, decls.len);
+    var tags = std.AutoHashMap(*SrcFile.Intel.Decl, SrcFile.Intel.Decl.Kind).init(&mem.allocator);
 
     { // prefilter `decls` by removing unwanted nodes so we can iterate more dumbly afterwards
         var tmp = std.ArrayList(@typeInfo(@TypeOf(decls)).Pointer.child){ .len = decls.len, .items = decls, .allocator = &mem.allocator };
@@ -16,7 +17,7 @@ fn srcFileSymbols(comptime T: type, mem: *std.heap.ArenaAllocator, src_file_abs_
             var should_remove = false;
             switch (tmp.items[i].value.kind) {
                 else => {},
-                .FnArg => should_remove = true,
+                .FnArg, .Block => should_remove = true,
                 .IdentConst, .IdentVar, .Init => {
                     var keep = (tmp.items[i].parent == null or
                         intel.decls.get(tmp.items[i].parent.?).isContainer() or
@@ -29,7 +30,7 @@ fn srcFileSymbols(comptime T: type, mem: *std.heap.ArenaAllocator, src_file_abs_
                     // tmp.items[i + 1].depth > tmp.items[i].depth and tmp.items[i + 1].parent != null and tmp.items[i + 1].parent.? == tmp.items[i].node_id and
                         tmp.items[i - 1].value.kind != .Fn and tmp.items[i - 1].value.kind != .Test);
                     if (should_remove and tmp.items[i - 1].value.kind != .Field)
-                        tmp.items[i - 1].value.tag = tmp.items[i].value.kind;
+                        _ = try tags.put(tmp.items[i - 1].value, tmp.items[i].value.kind);
                 },
             }
             if (!should_remove)
@@ -50,7 +51,7 @@ fn srcFileSymbols(comptime T: type, mem: *std.heap.ArenaAllocator, src_file_abs_
         const ranges = (try rangesFor(this_decl, intel.src)) orelse
             return &[_]T{};
 
-        const sym_kind = switch (this_decl.tag orelse this_decl.kind) {
+        const sym_kind = switch (tags.getValue(this_decl) orelse this_decl.kind) {
             else => unreachable,
             .Test => SymbolKind.Event,
             .Fn => |fn_info| if (fn_info.returns_type) SymbolKind.TypeParameter else SymbolKind.Function,
@@ -63,15 +64,20 @@ fn srcFileSymbols(comptime T: type, mem: *std.heap.ArenaAllocator, src_file_abs_
             .Init => SymbolKind.Field,
             .Using => SymbolKind.Namespace,
         };
+
         var sym_name = if (ranges.name) |range_name|
             (try range_name.constStr(intel.src)) orelse @tagName(this_decl.kind)
         else
             @tagName(this_decl.kind);
         if (!hierarchical and list_entry.depth != 0)
             sym_name = try std.fmt.allocPrint(&mem.allocator, "{s}{s}", .{ try zag.mem.times(&mem.allocator, list_entry.depth, "\t"[0..]), sym_name });
-        var sym_hint = force_hint orelse
-            ((ranges.strFromAnyOf(&[_]Str{ "brief_suff", "brief" }, intel.src)) orelse "");
-        if (force_hint == null) {
+
+        var sym_hint = force_hint orelse if (ranges.brief) |range_brief|
+            ((try range_brief.constStr(intel.src)) orelse "")
+        else
+            "";
+
+        if (force_hint == null and sym_hint.len != 0) {
             var str = try std.mem.dupe(&mem.allocator, u8, sym_hint);
             zag.mem.replaceScalars(str, "\t\r\n", ' ');
             sym_hint = try zag.mem.replace(&mem.allocator, str, "  ", " ", .repeatedly);
@@ -162,7 +168,7 @@ pub fn onSymbolsForWorkspace(ctx: Server.Ctx(WorkspaceSymbolParams)) !Result(?[]
         for (intel.decls.all_nodes.items[0..intel.decls.all_nodes.len]) |*node, i| {
             const this_decl = &node.payload;
 
-            const sym_kind = switch (this_decl.tag orelse this_decl.kind) {
+            const sym_kind = switch (this_decl.kind) {
                 else => continue,
                 .Fn => |fn_info| if (fn_info.returns_type) SymbolKind.TypeParameter else SymbolKind.Function,
                 .Struct => SymbolKind.Struct,
@@ -203,8 +209,6 @@ inline fn rangesFor(decl: *const SrcFile.Intel.Decl, in_src: Str) !?struct {
     full: Range = null, // TODO: Zig should compileError here! but in minimal repro it does. so leave it for now, but report before Zig 1.0.0 if it doesn't get fixed by chance in the meantime
     name: ?Range = null,
     brief: ?Range = null,
-    brief_pref: ?Range = null,
-    brief_suff: ?Range = null,
 
     pub fn strFromAnyOf(me: *const @This(), comptime field_names_to_try: []Str, in_src: Str) ?Str {
         inline for (field_names_to_try) |field_name|
@@ -223,9 +227,5 @@ inline fn rangesFor(decl: *const SrcFile.Intel.Decl, in_src: Str) !?struct {
         ret.name = try Range.initFromResliced(in_src, pos_name.start, pos_name.end);
     if (decl.pos.brief) |pos_brief|
         ret.brief = try Range.initFromResliced(in_src, pos_brief.start, pos_brief.end);
-    if (decl.pos.brief_pref) |pos_brief_pref|
-        ret.brief_pref = try Range.initFromResliced(in_src, pos_brief_pref.start, pos_brief_pref.end);
-    if (decl.pos.brief_suff) |pos_brief_suff|
-        ret.brief_suff = try Range.initFromResliced(in_src, pos_brief_suff.start, pos_brief_suff.end);
     return ret;
 }

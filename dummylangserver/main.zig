@@ -10,10 +10,13 @@ fn stdoutWrite(out_bytes: Str) !void {
 }
 
 pub fn main() !void {
+    std.debug.warn("Init dummylangserver...\n", .{});
     var server = lsp.Server{ .onOutput = stdoutWrite };
     setupServer(&server);
-    try server.forever(&std.io.BufferedInStream(std.os.ReadError).
-        init(&std.io.getStdIn().inStream().stream).stream);
+    std.debug.warn("Enter main loop...\n", .{});
+    try server.forever(&std.io.getStdIn().inStream().stream);
+    // try server.forever(&std.io.BufferedInStream(std.os.ReadError).
+    //     init(&std.io.getStdIn().inStream().stream).stream);
 }
 
 fn setupServer(server: *lsp.Server) void {

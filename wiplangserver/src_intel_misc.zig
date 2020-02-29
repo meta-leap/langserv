@@ -4,7 +4,7 @@ pub fn lookup(comptime TRetLocs: type, mem: *std.heap.ArenaAllocator, lookup_kin
     const locs = try zsess.src_intel.lookup(mem, lookup_kind, .{
         .full_path = lspUriToFilePath(src_file_uri),
         .pos_info = &[2]usize{ pos.line, pos.character },
-    }, true);
+    });
     const results: TRetLocs = .{ .locations = try mem.allocator.alloc(Location, locs.len) };
     for (locs) |*loc, i|
         results.locations[i] = .{
@@ -24,7 +24,7 @@ pub fn onDefs(ctx: Server.Ctx(DefinitionParams)) !Result(?Locations) {
 
 pub fn onHover(ctx: Server.Ctx(HoverParams)) !Result(?Hover) {
     const src_file_abs_path = lspUriToFilePath(ctx.value.TextDocumentPositionParams.textDocument.uri);
-    const markdown = try std.fmt.allocPrint(ctx.mem, "Mock hover for:\n\n```zig\n{}\n```\n\n", .{ctx.
+    const markdown = try std.fmt.allocPrint(ctx.mem, "Mock <u>hover</u> for:\n\n```zig\n{}\n```\n\n", .{ctx.
         value.TextDocumentPositionParams.position});
     return Result(?Hover){ .ok = Hover{ .contents = MarkupContent{ .value = markdown } } };
 }
