@@ -1,20 +1,25 @@
 usingnamespace @import("./_usingnamespace.zig");
 
-pub fn onDefs(ctx: Server.Ctx(DefinitionParams)) !Result(?Locations) {
-    const locs = try zsess.src_intel.lookup(ctx.memArena(), .Definitions, .{
-        .full_path = lspUriToFilePath(ctx.value.TextDocumentPositionParams.textDocument.uri),
-        .pos_info = &[2]usize{ ctx.value.TextDocumentPositionParams.position.line, ctx.value.TextDocumentPositionParams.position.character },
+pub fn lookup(comptime TRetLocs: type, mem: *std.heap.ArenaAllocator, lookup_kind: SrcIntel.Lookup, src_file_uri: Str, pos: Position) !Result(?TRetLocs) {
+    const locs = try zsess.src_intel.lookup(mem, lookup_kind, .{
+        .full_path = lspUriToFilePath(src_file_uri),
+        .pos_info = &[2]usize{ pos.line, pos.character },
     }, true);
-    const results: Locations = .{ .locations = try ctx.mem.alloc(Location, locs.len) };
+    const results: TRetLocs = .{ .locations = try mem.allocator.alloc(Location, locs.len) };
     for (locs) |*loc, i|
         results.locations[i] = .{
-            .uri = try std.fmt.allocPrint(ctx.mem, "file://{s}", .{loc.full_path}),
+            .uri = try std.fmt.allocPrint(&mem.allocator, "file://{s}", .{loc.full_path}),
             .range = .{
                 .start = .{ .line = loc.pos_info[0], .character = loc.pos_info[1] },
                 .end = .{ .line = loc.pos_info[2], .character = loc.pos_info[3] },
             },
         };
-    return Result(?Locations){ .ok = results };
+    return Result(?TRetLocs){ .ok = results };
+}
+
+pub fn onDefs(ctx: Server.Ctx(DefinitionParams)) !Result(?Locations) {
+    return lookup(Locations, ctx.memArena(), .Definitions, ctx.value.
+        TextDocumentPositionParams.textDocument.uri, ctx.value.TextDocumentPositionParams.position);
 }
 
 pub fn onHover(ctx: Server.Ctx(HoverParams)) !Result(?Hover) {
