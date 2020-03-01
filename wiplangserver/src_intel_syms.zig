@@ -1,18 +1,14 @@
 usingnamespace @import("./_usingnamespace.zig");
 
 fn srcFileSymbols(comptime T: type, mem: *std.heap.ArenaAllocator, src_file_abs_path: Str, force_hint: ?Str) ![]T {
-    _ = try zsess.src_intel.namedDecls(mem, src_file_abs_path);
-
     const hierarchical = (T == DocumentSymbol);
-    const intel_shared = (try zsess.src_intel.fileSpecificIntelLocked(mem, src_file_abs_path, true)) orelse
-        return &[_]T{};
-    defer intel_shared.held.release();
-    const intel = intel_shared.item;
+    const intel = (try zsess.src_intel.namedDecls(mem, src_file_abs_path)) orelse return &[_]T{};
     const decls = try intel.decls.toOrderedList(&mem.allocator, null);
     var results = try std.ArrayList(T).initCapacity(&mem.allocator, decls.len);
     var tags = std.AutoHashMap(*SrcIntel.NamedDecl, SrcIntel.NamedDecl.Kind).init(&mem.allocator);
 
     { // prefilter `decls` by removing unwanted nodes so we can iterate more dumbly afterwards
+        // TODO: orderedRemove usage slows the whole function down (noticable for biggies such as std/zig/ast.zig), so switch to a mark-removed approach
         var tmp = std.ArrayList(@typeInfo(@TypeOf(decls)).Pointer.child){ .len = decls.len, .items = decls, .allocator = &mem.allocator };
         var i: usize = 0;
         while (i < tmp.len) {
@@ -156,45 +152,8 @@ pub fn onSymbolsForDocument(ctx: Server.Ctx(DocumentSymbolParams)) !Result(?Docu
     };
 }
 
-pub fn onSymbolsForWorkspace(ctx: Server.Ctx(WorkspaceSymbolParams)) !Result(?[]SymbolInformation) {
-    const start_time = std.time.milliTimestamp();
-    var symbols = try std.ArrayList(SymbolInformation).initCapacity(ctx.mem, 64 * 1024);
-    var src_file_abs_paths = try zsess.src_files.allCurrentlyTrackedSrcFileAbsPaths(ctx.mem);
-    for (src_file_abs_paths) |src_file_abs_path| {
-        const src_file_uri = try std.fmt.allocPrint(ctx.mem, "file://{s}", .{src_file_abs_path});
-        const sym_cont = std.fs.path.dirname(src_file_abs_path) orelse ".";
-        const intel_shared = (try zsess.src_intel.fileSpecificIntelLocked(ctx.memArena(), src_file_abs_path, false)) orelse
-            continue;
-        defer intel_shared.held.release();
-        const intel = intel_shared.item;
-        for (intel.decls.all_nodes.items[0..intel.decls.all_nodes.len]) |*node, i| {
-            const this_decl = &node.payload;
-
-            const sym_kind = switch (this_decl.kind) {
-                else => continue,
-                .Fn => |fn_info| if (fn_info.returns_type) SymbolKind.TypeParameter else SymbolKind.Function,
-                .Struct => SymbolKind.Struct,
-                .Union => SymbolKind.Null,
-                .Enum => SymbolKind.Enum,
-                .IdentConst => if (node.parent == null) SymbolKind.Constant else continue,
-                .IdentVar => if (node.parent == null) SymbolKind.Variable else continue,
-            };
-
-            if (this_decl.pos.name) |pos_name|
-                try symbols.append(.{
-                    .name = try std.mem.dupe(ctx.mem, u8, intel.src[pos_name.start..pos_name.end]),
-                    .kind = sym_kind,
-                    .containerName = sym_cont,
-                    .location = .{
-                        .uri = src_file_uri,
-                        .range = try Range.initFromResliced(intel.src, pos_name.start, pos_name.end),
-                    },
-                });
-        }
-    }
-    const time_taken = std.time.milliTimestamp() - start_time;
-    logToStderr("WsS {}\t{}\n", .{ time_taken, symbols.len });
-    return Result(?[]SymbolInformation){ .ok = symbols.toSlice() };
+pub fn onSymbolsForWorkspace(ctx: Server.Ctx(WorkspaceSymbolParams)) error{}!Result(?[]SymbolInformation) {
+    return Result(?[]SymbolInformation){ .ok = null };
 }
 
 pub fn onSymbolHighlight(ctx: Server.Ctx(DocumentHighlightParams)) !Result(?[]DocumentHighlight) {

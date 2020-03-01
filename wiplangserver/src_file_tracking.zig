@@ -114,7 +114,7 @@ pub fn onFileBufEdited(ctx: Server.Ctx(DidChangeTextDocumentParams)) !void {
     defer {
         lock.release();
         if (zsess.src_files.getByFullPath(src_file_abs_path)) |src_file| {
-            _ = src_file.reload(ctx.memArena()) catch {};
+            _ = src_file.reload() catch {};
             zsess.workers.src_files_refresh_intel.base.prependJobs(&[_]u64{src_file.id}) catch {};
         }
     }
