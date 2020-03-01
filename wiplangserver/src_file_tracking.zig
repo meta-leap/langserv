@@ -115,7 +115,7 @@ pub fn onFileBufEdited(ctx: Server.Ctx(DidChangeTextDocumentParams)) !void {
         lock.release();
         if (zsess.src_files.getByFullPath(src_file_abs_path)) |src_file| {
             _ = src_file.reload() catch {};
-            zsess.workers.src_files_refresh_intel.base.prependJobs(&[_]u64{src_file.id}) catch {};
+            zsess.workers.src_files_refresh_imports.base.prependJobs(&[_]u64{src_file.id}) catch {};
         }
     }
     const src_file_id = SrcFile.id(src_file_abs_path);
