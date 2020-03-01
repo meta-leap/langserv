@@ -21,7 +21,7 @@ pub const Position = struct {
     line: usize,
     character: usize,
 
-    pub fn fromByteIndexIn(string: Str, index: usize) !Position {
+    pub fn fromByteIndexIn(string: Str, index: usize, is_ascii_only: bool) !Position {
         var cur = Position{ .line = 0, .character = 0 };
 
         var i: usize = 0;
@@ -33,12 +33,12 @@ pub const Position = struct {
         i = if (i_last_line) |idx| idx + 1 else 0;
         while (i < string.len and i < index) {
             cur.character += 1;
-            i += try std.unicode.utf8ByteSequenceLength(string[i]);
+            i += if (is_ascii_only) 1 else try std.unicode.utf8ByteSequenceLength(string[i]);
         }
         return cur;
     }
 
-    pub fn toByteIndexIn(me: *const Position, string: Str) !?usize {
+    pub fn toByteIndexIn(me: *const Position, string: Str, is_ascii_only: bool) !?usize {
         var cur = Position{ .line = 0, .character = 0 };
         var i: usize = 0;
         while (i < string.len) {
@@ -51,7 +51,7 @@ pub const Position = struct {
                 i += 1
             else {
                 cur.character += 1;
-                i += try std.unicode.utf8ByteSequenceLength(string[i]);
+                i += if (is_ascii_only) 1 else try std.unicode.utf8ByteSequenceLength(string[i]);
             }
         }
         return null;
@@ -62,12 +62,12 @@ pub const Range = struct {
     start: Position,
     end: Position,
 
-    pub fn initFrom(string: Str) !Range {
-        const last_pos = try Position.fromByteIndexIn(string, string.len - 1);
+    pub fn initFrom(string: Str, is_ascii_only: bool) !Range {
+        const last_pos = try Position.fromByteIndexIn(string, string.len - 1, is_ascii_only);
         return Range{ .start = .{ .line = 0, .character = 0 }, .end = last_pos };
     }
 
-    pub fn initFromResliced(string: Str, index_start: usize, index_end: usize) !Range {
+    pub fn initFromResliced(string: Str, index_start: usize, index_end: usize, is_ascii_only: bool) !Range {
         var range = Range{ .start = .{ .line = 0, .character = 0 }, .end = .{ .line = 0, .character = 0 } };
         var i: usize = 0;
         var i_last_line: ?usize = null;
@@ -80,7 +80,7 @@ pub const Range = struct {
         i = if (i_last_line) |idx| idx + 1 else 0;
         while (i < string.len and i < index_start) {
             range.start.character += 1;
-            i += try std.unicode.utf8ByteSequenceLength(string[i]);
+            i += if (is_ascii_only) 1 else try std.unicode.utf8ByteSequenceLength(string[i]);
         }
 
         if (index_end == index_start)
@@ -94,14 +94,14 @@ pub const Range = struct {
             i = if (i_last_line) |idx| idx + 1 else 0;
             while (i < string.len and i < index_end) {
                 range.end.character += 1;
-                i += try std.unicode.utf8ByteSequenceLength(string[i]);
+                i += if (is_ascii_only) 1 else try std.unicode.utf8ByteSequenceLength(string[i]);
             }
         }
 
         return range;
     }
 
-    pub fn indicesIn(me: *const Range, string: Str) !?[2]usize {
+    pub fn indicesIn(me: *const Range, string: Str, is_ascii_only: bool) !?[2]usize {
         var cur = Position{ .line = 0, .character = 0 };
         var idx_start: ?usize = null;
         var idx_end: ?usize = null;
@@ -121,7 +121,7 @@ pub const Range = struct {
                 i += 1
             else {
                 cur.character += 1;
-                i += try std.unicode.utf8ByteSequenceLength(string[i]);
+                i += if (is_ascii_only) 1 else try std.unicode.utf8ByteSequenceLength(string[i]);
             }
         }
         if (idx_start) |i_start| {
@@ -131,15 +131,15 @@ pub const Range = struct {
         return null;
     }
 
-    pub fn constStr(me: *const Range, string: Str) !?Str {
-        return if (try me.indicesIn(string)) |start_and_end|
+    pub fn constStr(me: *const Range, string: Str, is_ascii_only: bool) !?Str {
+        return if (try me.indicesIn(string, is_ascii_only)) |start_and_end|
             string[start_and_end[0]..start_and_end[1]]
         else
             null;
     }
 
-    pub fn mutBytes(me: *const Range, string: []u8) !?[]u8 {
-        return if (try me.indicesIn(string)) |start_and_end|
+    pub fn mutBytes(me: *const Range, string: []u8, is_ascii_only: bool) !?[]u8 {
+        return if (try me.indicesIn(string, is_ascii_only)) |start_and_end|
             string[start_and_end[0]..start_and_end[1]]
         else
             null;

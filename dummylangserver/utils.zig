@@ -20,7 +20,7 @@ pub fn gatherPseudoNameLocations(mem: *std.mem.Allocator, src_file_uri: Str, pos
         while (i < name_helper.src.len) {
             if (std.mem.indexOfPos(u8, name_helper.src, i, word)) |idx| {
                 i = idx + word.len;
-                try locs.append((try Range.initFromResliced(name_helper.src, idx, i)));
+                try locs.append((try Range.initFromResliced(name_helper.src, idx, i, false)));
             } else
                 break;
         }
@@ -39,8 +39,8 @@ pub const PseudoNameHelper = struct {
         var ret: PseudoNameHelper = undefined;
         ret.src = try cachedOrFreshSrc(mem, src_file_uri);
 
-        ret.full_src_range = try Range.initFrom(ret.src);
-        if (try position.toByteIndexIn(ret.src)) |pos|
+        ret.full_src_range = try Range.initFrom(ret.src, false);
+        if (try position.toByteIndexIn(ret.src, false)) |pos|
             if ((ret.src[pos] >= 'a' and ret.src[pos] <= 'z') or (ret.src[pos] >= 'A' and ret.src[pos] <= 'Z')) {
                 ret.word_start = pos;
                 ret.word_end = pos;

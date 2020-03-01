@@ -147,9 +147,9 @@ fn onFormat(mem: *std.mem.Allocator, src_file_uri: Str, src_range: ?Range) !Resu
     var ret_range: Range = undefined;
     if (src_range) |range| {
         ret_range = range;
-        src = (try range.mutBytes(src)) orelse return Result(?[]TextEdit){ .ok = null };
+        src = (try range.mutBytes(src, false)) orelse return Result(?[]TextEdit){ .ok = null };
     } else
-        ret_range = try Range.initFrom(src);
+        ret_range = try Range.initFrom(src, false);
 
     for (src) |char, i| {
         if (char == ' ')
@@ -201,7 +201,7 @@ fn onRenamePrep(ctx: Server.Ctx(PrepareRenameParams)) !Result(?RenamePrep) {
             .ok = .{
                 .augmented = .{
                     .placeholder = "Hint text goes here.",
-                    .range = try Range.initFromResliced(name_helper.src, name_helper.word_start, name_helper.word_end),
+                    .range = try Range.initFromResliced(name_helper.src, name_helper.word_start, name_helper.word_end, false),
                 },
             },
         };
@@ -257,7 +257,7 @@ fn onExecuteCommand(ctx: Server.Ctx(ExecuteCommandParams)) !Result(?jsonic.AnyVa
                 const is_to_lower = std.mem.eql(u8, ctx.value.command, "dummylangserver.caselo");
                 if (is_to_upper or is_to_lower) {
                     var src = try cachedOrFreshSrc(ctx.mem, src_file_uri);
-                    const full_src_range = try Range.initFrom(src);
+                    const full_src_range = try Range.initFrom(src, false);
                     for (src) |char, i| {
                         if (is_to_lower and char >= 'A' and char <= 'Z')
                             src[i] = char + 32
@@ -310,7 +310,7 @@ fn onSelectionRange(ctx: Server.Ctx(SelectionRangeParams)) !Result(?[]SelectionR
     for (ctx.value.positions) |pos, i| {
         ranges[i].parent = null;
         if (try utils.PseudoNameHelper.init(ctx.mem, src_file_uri, pos)) |name_helper|
-            ranges[i].range = try Range.initFromResliced(name_helper.src, name_helper.word_start, name_helper.word_end)
+            ranges[i].range = try Range.initFromResliced(name_helper.src, name_helper.word_start, name_helper.word_end, false)
         else
             return Result(?[]SelectionRange){ .ok = null };
     }

@@ -85,7 +85,7 @@ fn pushDiagnostics(mem: *std.mem.Allocator, srv: *Server, src_file_uri: Str, src
         while (std.mem.indexOfPos(u8, src, i, "file://")) |idx| {
             i = idx + "file://".len;
             try diags.append(Diagnostic{
-                .range = try Range.initFromResliced(src, idx, i),
+                .range = try Range.initFromResliced(src, idx, i, false),
                 .severity = .Warning,
                 .message = "Local file path detected",
             });
