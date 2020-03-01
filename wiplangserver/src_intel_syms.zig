@@ -3,8 +3,11 @@ usingnamespace @import("./_usingnamespace.zig");
 fn srcFileSymbols(comptime T: type, mem: *std.heap.ArenaAllocator, src_file_uri: Str, force_hint: ?Str) ![]T {
     const src_file_abs_path = lspUriToFilePath(src_file_uri);
     const hierarchical = (T == DocumentSymbol);
-    const intel = (try zsess.src_intel.namedDecls(mem, src_file_abs_path)) orelse return &[_]T{};
-    const decls = try intel.decls.toOrderedList(&mem.allocator, null);
+    const locked = (try zsess.src_intel.withNamedDeclsEnsured(mem, src_file_abs_path)) orelse return &[_]T{};
+    defer locked.held.release();
+    const intel = &locked.item.src_file.intel.?;
+    const src = locked.item.ast.source;
+    const decls = try intel.named_decls.?.toOrderedList(&mem.allocator, null);
     var results = try std.ArrayList(T).initCapacity(&mem.allocator, decls.len);
     var tags = std.AutoHashMap(*SrcIntel.NamedDecl, SrcIntel.NamedDecl.Kind).init(&mem.allocator);
 
@@ -18,13 +21,13 @@ fn srcFileSymbols(comptime T: type, mem: *std.heap.ArenaAllocator, src_file_uri:
                 .FnArg, .Block => should_remove = true,
                 .IdentConst, .IdentVar, .Init => {
                     var keep = (tmp.items[i].parent == null or
-                        intel.decls.get(tmp.items[i].parent.?).isContainer() or
-                        try intel.decls.haveAny(&mem.allocator, SrcIntel.NamedDecl.isContainer, tmp.items[i].node_id));
+                        intel.named_decls.?.get(tmp.items[i].parent.?).isContainer() or
+                        try intel.named_decls.?.haveAny(&mem.allocator, SrcIntel.NamedDecl.isContainer, tmp.items[i].node_id));
                     should_remove = !keep;
                 },
                 .Struct, .Union, .Enum => if (tmp.items[i].parent) |parent| {
                     should_remove = (i < (tmp.len - 1) and
-                        tmp.items[i - 1].node_id == parent and 1 == intel.decls.numSubNodes(parent, 2) and
+                        tmp.items[i - 1].node_id == parent and 1 == intel.named_decls.?.numSubNodes(parent, 2) and
                     // tmp.items[i + 1].depth > tmp.items[i].depth and tmp.items[i + 1].parent != null and tmp.items[i + 1].parent.? == tmp.items[i].node_id and
                         tmp.items[i - 1].value.kind != .Fn and tmp.items[i - 1].value.kind != .Test);
                     if (should_remove and tmp.items[i - 1].value.kind != .Field)
@@ -46,7 +49,7 @@ fn srcFileSymbols(comptime T: type, mem: *std.heap.ArenaAllocator, src_file_uri:
     var cur_path: []usize = &[_]usize{};
     for (decls) |*list_entry, i| {
         const this_decl = list_entry.value;
-        const range_full = try Range.initFromResliced(intel.src, this_decl.pos.full.start, this_decl.pos.full.end, intel.src_is_ascii_only);
+        const range_full = try Range.initFromResliced(src, this_decl.pos.full.start, this_decl.pos.full.end, intel.src_is_ascii_only);
 
         const sym_kind = switch (tags.getValue(this_decl) orelse this_decl.kind) {
             else => unreachable,
@@ -62,11 +65,11 @@ fn srcFileSymbols(comptime T: type, mem: *std.heap.ArenaAllocator, src_file_uri:
             .Using => SymbolKind.Namespace,
         };
 
-        var sym_name = if (this_decl.pos.name) |range_name| intel.src[range_name.start..range_name.end] else @tagName(this_decl.kind);
+        var sym_name = if (this_decl.pos.name) |range_name| src[range_name.start..range_name.end] else @tagName(this_decl.kind);
         if (!hierarchical and list_entry.depth != 0)
             sym_name = try std.fmt.allocPrint(&mem.allocator, "{s}{s}", .{ try zag.mem.times(&mem.allocator, list_entry.depth, "\t"[0..]), sym_name });
 
-        var sym_hint = force_hint orelse if (this_decl.pos.brief) |range_brief| intel.src[range_brief.start..range_brief.end] else "";
+        var sym_hint = force_hint orelse if (this_decl.pos.brief) |range_brief| src[range_brief.start..range_brief.end] else "";
         if (null == force_hint and sym_hint.len != 0) {
             var str = try std.mem.dupe(&mem.allocator, u8, sym_hint);
             zag.mem.replaceScalars(str, "\t\r\n", ' ');
