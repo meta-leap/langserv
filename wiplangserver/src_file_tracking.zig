@@ -195,6 +195,7 @@ pub fn onFileBufSaved(ctx: Server.Ctx(DidSaveTextDocumentParams)) !void {
             .force_reload = force_reload,
         },
     });
+    try zsess.workers.deps_syncer.base.appendJobs(&[_]u1{undefined});
     try zsess.workers.build_runs.base.appendJobs(&[_]u64{src_file_id});
 }
 
@@ -210,6 +211,7 @@ pub fn onFileEvents(ctx: Server.Ctx(DidChangeWatchedFilesParams)) !void {
         }
     }
     try zsess.workers.src_files_gatherer.base.appendJobs(jobs.toSlice());
+    try zsess.workers.deps_syncer.base.appendJobs(&[_]u1{undefined});
 }
 
 pub fn onInitRegisterFileWatcher(ctx: Server.Ctx(InitializedParams)) !void {
