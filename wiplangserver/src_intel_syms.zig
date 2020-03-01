@@ -1,6 +1,8 @@
 usingnamespace @import("./_usingnamespace.zig");
 
 fn srcFileSymbols(comptime T: type, mem: *std.heap.ArenaAllocator, src_file_abs_path: Str, force_hint: ?Str) ![]T {
+    _ = try zsess.src_intel.namedDecls(mem, src_file_abs_path);
+
     const hierarchical = (T == DocumentSymbol);
     const intel_shared = (try zsess.src_intel.fileSpecificIntelLocked(mem, src_file_abs_path, true)) orelse
         return &[_]T{};
@@ -8,7 +10,7 @@ fn srcFileSymbols(comptime T: type, mem: *std.heap.ArenaAllocator, src_file_abs_
     const intel = intel_shared.item;
     const decls = try intel.decls.toOrderedList(&mem.allocator, null);
     var results = try std.ArrayList(T).initCapacity(&mem.allocator, decls.len);
-    var tags = std.AutoHashMap(*SrcFile.Intel.Decl, SrcFile.Intel.Decl.Kind).init(&mem.allocator);
+    var tags = std.AutoHashMap(*SrcIntel.NamedDecl, SrcIntel.NamedDecl.Kind).init(&mem.allocator);
 
     { // prefilter `decls` by removing unwanted nodes so we can iterate more dumbly afterwards
         var tmp = std.ArrayList(@typeInfo(@TypeOf(decls)).Pointer.child){ .len = decls.len, .items = decls, .allocator = &mem.allocator };
@@ -21,7 +23,7 @@ fn srcFileSymbols(comptime T: type, mem: *std.heap.ArenaAllocator, src_file_abs_
                 .IdentConst, .IdentVar, .Init => {
                     var keep = (tmp.items[i].parent == null or
                         intel.decls.get(tmp.items[i].parent.?).isContainer() or
-                        try intel.decls.haveAny(SrcFile.Intel.Decl.isContainer, tmp.items[i].node_id));
+                        try intel.decls.haveAny(&mem.allocator, SrcIntel.NamedDecl.isContainer, tmp.items[i].node_id));
                     should_remove = !keep;
                 },
                 .Struct, .Union, .Enum => if (tmp.items[i].parent) |parent| {
@@ -205,7 +207,7 @@ pub fn onSymbolHighlight(ctx: Server.Ctx(DocumentHighlightParams)) !Result(?[]Do
     return Result(?[]DocumentHighlight){ .ok = syms };
 }
 
-inline fn rangesFor(decl: *const SrcFile.Intel.Decl, in_src: Str) !?struct {
+inline fn rangesFor(decl: *const SrcIntel.NamedDecl, in_src: Str) !?struct {
     full: Range = null, // TODO: Zig should compileError here! but in minimal repro it does. so leave it for now, but report before Zig 1.0.0 if it doesn't get fixed by chance in the meantime
     name: ?Range = null,
     brief: ?Range = null,
