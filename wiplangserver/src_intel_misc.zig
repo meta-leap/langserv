@@ -1,7 +1,6 @@
 usingnamespace @import("./_usingnamespace.zig");
 
 pub fn lookup(comptime TRetLocs: type, mem: *std.heap.ArenaAllocator, lookup_kind: SrcIntel.Lookup, src_file_uri: Str, pos: Position) !Result(?TRetLocs) {
-    std.debug.warn("LOOKUP\t{}\n", .{lookup_kind});
     const locs = try zsess.src_intel.lookup(mem, lookup_kind, .{
         .full_path = lspUriToFilePath(src_file_uri),
         .pos_info = &[2]usize{ pos.line, pos.character },

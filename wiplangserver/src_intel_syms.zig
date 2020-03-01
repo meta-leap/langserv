@@ -18,7 +18,7 @@ fn srcFileSymbols(comptime T: type, mem: *std.heap.ArenaAllocator, src_file_uri:
             var should_remove = false;
             switch (tmp.items[i].value.kind) {
                 else => {},
-                .FnArg, .Block => should_remove = true,
+                .FnArg, .Block, .Payload => should_remove = true,
                 .IdentConst, .IdentVar, .Init => {
                     var keep = (tmp.items[i].parent == null or
                         intel.named_decls.?.get(tmp.items[i].parent.?).isContainer() or
