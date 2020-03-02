@@ -204,7 +204,7 @@ pub fn onFileEvents(ctx: Server.Ctx(DidChangeWatchedFilesParams)) !void {
     {
         const lock = src_files_owned_by_client.lock();
         defer lock.release();
-        for (ctx.value.changes) |*file_event, i| {
+        for (ctx.value.changes) |*file_event| {
             const src_file_abs_path = lspUriToFilePath(file_event.uri);
             const force_reload = (null == src_files_owned_by_client.live_bufs.get(src_file_abs_path));
             try jobs.append(.{ .absolute_path = src_file_abs_path, .force_reload = force_reload });
