@@ -24,9 +24,26 @@ pub fn onDefs(ctx: Server.Ctx(DefinitionParams)) !Result(?Locations) {
 
 pub fn onHover(ctx: Server.Ctx(HoverParams)) !Result(?Hover) {
     const src_file_abs_path = lspUriToFilePath(ctx.value.TextDocumentPositionParams.textDocument.uri);
-    const markdown = try std.fmt.allocPrint(ctx.mem, "Mock <u>hover</u> for:\n\n```zig\n{}\n```\n\n", .{ctx.
-        value.TextDocumentPositionParams.position});
-    return Result(?Hover){ .ok = Hover{ .contents = MarkupContent{ .value = markdown } } };
+    var markdowns = try std.ArrayList(Str).initCapacity(ctx.mem, 4);
+    try markdowns.append("one");
+    try markdowns.append("two");
+    if (try zsess.src_intel.resolve(ctx.memArena(), .{
+        .full_path = src_file_abs_path,
+        .pos_info = &[2]usize{
+            ctx.value.TextDocumentPositionParams.position.line,
+            ctx.value.TextDocumentPositionParams.position.character,
+        },
+    })) |locked|
+        locked.held.release();
+
+    return Result(?Hover){
+        .ok = Hover{
+            .contents = MarkupContent{
+                .value = try std.mem.
+                    join(ctx.mem, "\n\n____\n\n", markdowns.toSliceConst()),
+            },
+        },
+    };
 }
 
 pub fn onCompletion(ctx: Server.Ctx(CompletionParams)) !Result(?CompletionList) {
