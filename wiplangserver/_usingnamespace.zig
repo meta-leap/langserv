@@ -11,5 +11,6 @@ pub usingnamespace @import("./setup.zig");
 pub usingnamespace @import("./src_file_tracking.zig");
 pub usingnamespace @import("./src_diags.zig");
 pub usingnamespace @import("./src_edits.zig");
-pub usingnamespace @import("./src_intel_misc.zig");
+pub usingnamespace @import("./src_intel_lookups.zig");
+pub usingnamespace @import("./src_intel_hover.zig");
 pub usingnamespace @import("./src_intel_syms.zig");
