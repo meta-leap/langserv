@@ -12,6 +12,8 @@ pub fn onHover(ctx: Server.Ctx(HoverParams)) !Result(?Hover) {
     })) |locked| {
         defer locked.held.release();
         try markdowns.append(try std.fmt.allocPrint(ctx.mem, "{}", .{locked.item.node.id}));
+        for (locked.item.resolveds) |resolved|
+            try markdowns.append(try toMarkDown(ctx.memArena(), resolved));
     }
 
     return Result(?Hover){
@@ -24,4 +26,10 @@ pub fn onHover(ctx: Server.Ctx(HoverParams)) !Result(?Hover) {
     };
 }
 
-fn toMarkDown() Str {}
+fn toMarkDown(mem: *std.heap.ArenaAllocator, resolved: SrcIntel.AstResolved) !Str {
+    return switch (resolved) {
+        else => try std.fmt.allocPrint(&mem.allocator, "no toMarkDown impl yet for `{}`", .{std.meta.activeTag(resolved)}),
+        .err_or_warning => |issue| try std.fmt.allocPrint(&mem.allocator, "Problem with this `{}`:\n\n{}", .{ zag.mem.
+            trimPrefix(u8, try std.fmt.allocPrint(&mem.allocator, "{}", .{issue.node_id}), "Id."), issue.detail }),
+    };
+}
