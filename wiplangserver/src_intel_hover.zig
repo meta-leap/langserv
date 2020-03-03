@@ -27,9 +27,27 @@ pub fn onHover(ctx: Server.Ctx(HoverParams)) !Result(?Hover) {
 }
 
 fn toMarkDown(mem: *std.heap.ArenaAllocator, resolved: SrcIntel.AstResolved) !Str {
-    return switch (resolved) {
-        else => try std.fmt.allocPrint(&mem.allocator, "no toMarkDown impl yet for `{}`", .{std.meta.activeTag(resolved)}),
-        .err_or_warning => |issue| try std.fmt.allocPrint(&mem.allocator, "Problem with this `{}`:\n\n{}", .{ zag.mem.
+    switch (resolved) {
+        else => return try std.fmt.allocPrint(&mem.
+            allocator, "no toMarkDown impl yet for `{}`", .{std.meta.activeTag(resolved)}),
+        .err_or_warning => |issue| return try std.fmt.allocPrint(&mem.
+            allocator, "Problem with this `{}`:\n\n{}", .{ zag.mem.
             trimPrefix(u8, try std.fmt.allocPrint(&mem.allocator, "{}", .{issue.node_id}), "Id."), issue.detail }),
-    };
+        .string => |str| return try std.fmt.allocPrint(&mem.
+            allocator, "{} bytes; {} UTF-8 runes", .{ str.len, if (zag.util.utf8RuneCount(str)) |n| n else |_| 0 }),
+        .uint => |uint| {
+            var str: Str = "";
+            const format_chars = "{d}{x}{b}";
+            comptime var i: usize = 0;
+            inline while (i < format_chars.len) : (i += 3) {
+                const fmt_preview = try std.fmt.allocPrint(&mem.allocator, format_chars[i .. i + 3], .{uint});
+                str = try std.fmt.allocPrint(&mem.allocator, "{s}- `{s}` &rarr; `{s}`\n", .{ str, format_chars[i .. i + 3], fmt_preview });
+            }
+            if (uint > 32 and uint < 127) {
+                const fmt_preview = try std.fmt.allocPrint(&mem.allocator, "{c}", .{@intCast(u8, uint)});
+                str = try std.fmt.allocPrint(&mem.allocator, "{s}- `{s}` &rarr; `{s}`\n", .{ str, "{c}", fmt_preview });
+            }
+            return str;
+        },
+    }
 }
