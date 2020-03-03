@@ -33,8 +33,19 @@ fn toMarkDown(mem: *std.heap.ArenaAllocator, resolved: SrcIntel.AstResolved) !St
         .err_or_warning => |issue| return try std.fmt.allocPrint(&mem.
             allocator, "Problem with this `{}`:\n\n{}", .{ zag.mem.
             trimPrefix(u8, try std.fmt.allocPrint(&mem.allocator, "{}", .{issue.node_id}), "Id."), issue.detail }),
+        .boolean => return "```zig\nbool\n```\n"[0..],
         .string => |str| return try std.fmt.allocPrint(&mem.
-            allocator, "{} bytes; {} UTF-8 runes", .{ str.len, if (zag.util.utf8RuneCount(str)) |n| n else |_| 0 }),
+            allocator, "- {} byte(s) ({} ASCII)\n- {} UTF-8 rune(s)\n- {} line-break(s)\n- {} tab-stop(s)", .{ str.len, zag.util.asciiByteCount(str), if (zag.util.utf8RuneCount(str)) |n| n else |_| 0, zag.mem.count(str, '\n'), zag.mem.count(str, '\t') }),
+        .float => |float| {
+            var str: Str = "";
+            const format_chars = "{d}{e}";
+            comptime var i: usize = 0;
+            inline while (i < format_chars.len) : (i += 3) {
+                const fmt_preview = try std.fmt.allocPrint(&mem.allocator, format_chars[i .. i + 3], .{float});
+                str = try std.fmt.allocPrint(&mem.allocator, "{s}- `{s}` &rarr; `{s}`\n", .{ str, format_chars[i .. i + 3], fmt_preview });
+            }
+            return str;
+        },
         .uint => |uint| {
             var str: Str = "";
             const format_chars = "{d}{x}{b}";
