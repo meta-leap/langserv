@@ -14,8 +14,22 @@ pub fn onHover(ctx: Server.Ctx(HoverParams)) !Result(?Hover) {
         defer locked.held.release();
         for (locked.item.resolveds) |resolved|
             try markdowns.append(try toMarkDown(ctx.memArena(), &locked.item, resolved));
-        if (markdowns.len == 0)
-            try markdowns.append(try std.fmt.allocPrint(ctx.mem, "{}", .{locked.item.node.id}));
+        if (markdowns.len == 0) switch (locked.item.node.id) {
+            else => try markdowns.append(try std.fmt.allocPrint(ctx.mem, "{}", .{locked.item.node.id})),
+            .BuiltinCall => if (locked.item.node.cast(std.zig.ast.Node.BuiltinCall)) |this_bcall| {
+                const name = std.mem.trimLeft(u8, locked.item.ast.tokenSlicePtr(locked.item.ast.tokens.at(this_bcall.builtin_token)), "@");
+                if (try zsess.zig_install.langrefHtmlFileSrcSnippet(ctx.memArena(), name)) |descr_snippet|
+                    try markdowns.append(try zag.util.stripMarkupTags(ctx.mem, std.mem.trim(u8, try zag.mem.replaceAny(
+                        ctx.mem,
+                        try std.fmt.allocPrint(ctx.mem, "{s}", .{descr_snippet}),
+                        &[_][2]Str{
+                            [2]Str{ "<code class=\"zig\">", "`" },
+                            [2]Str{ "</code>", "`" },
+                            [2]Str{ "&quot;", "\"" },
+                        },
+                    ), " \t\n\r")));
+            },
+        };
     }
 
     return Result(?Hover){
