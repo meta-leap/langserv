@@ -17,7 +17,7 @@ pub fn onHover(ctx: Server.Ctx(HoverParams)) !Result(?Hover) {
         if (markdowns.len == 0) switch (locked.item.node.id) {
             else => try markdowns.append(try std.fmt.allocPrint(ctx.mem, "{}", .{locked.item.node.id})),
             .BuiltinCall => if (locked.item.node.cast(std.zig.ast.Node.BuiltinCall)) |this_bcall| {
-                const name = std.mem.trimLeft(u8, locked.item.ast.tokenSlicePtr(locked.item.ast.tokens.at(this_bcall.builtin_token)), "@");
+                const name = std.mem.trimLeft(u8, locked.item.the.ast.tokenSlicePtr(locked.item.the.ast.tokens.at(this_bcall.builtin_token)), "@");
                 if (try zsess.zig_install.langrefHtmlFileSrcSnippet(ctx.memArena(), name)) |descr_snippet|
                     try markdowns.append(try zag.util.stripMarkupTags(ctx.mem, std.mem.trim(u8, try zag.mem.replaceAny(
                         ctx.mem,
@@ -94,16 +94,24 @@ fn toMarkDown(mem: *std.heap.ArenaAllocator, context: *const SrcIntel.Resolved, 
                 allocator, "no toMarkDown impl yet for `{}`", .{std.meta.activeTag(loc_ref)}),
 
             .same_src_file => |node| {
-                const start = context.ast.tokens.at(node.firstToken()).start;
-                const end = context.ast.tokens.at(node.lastToken()).end;
                 var str: Str = "";
-                if (try zast.nodeDocComments(mem, context.ast, node)) |doc_comment_lines|
+                if (try zast.nodeDocComments(mem, context.the.ast, node)) |doc_comment_lines|
                     if (doc_comment_lines.len != 0) {
                         for (doc_comment_lines) |doc_comment_line|
                             str = try std.fmt.allocPrint(&mem.allocator, "{s}{s}\n", .{ str, doc_comment_line });
                         str = try std.fmt.allocPrint(&mem.allocator, "{s}\n \n____\n \n", .{str});
                     };
-                str = try std.fmt.allocPrint(&mem.allocator, "{s}```zig\n{}\n```\n", .{ str, context.ast.source[start..end] });
+
+                var start = context.the.ast.tokens.at(node.firstToken()).start;
+                var end = context.the.ast.tokens.at(node.lastToken()).end;
+                switch (node.id) {
+                    else => {},
+                    .PointerIndexPayload, .PointerPayload, .Payload => {
+                        if (try zast.pathToNode(mem, &context.the, .{ .node = node })) |node_path|
+                            start = context.the.ast.tokens.at(node_path[node_path.len - 2].firstToken()).start;
+                    },
+                }
+                str = try std.fmt.allocPrint(&mem.allocator, "{s}```zig\n{}\n```\n", .{ str, context.the.ast.source[start..end] });
                 return str;
             },
         },
