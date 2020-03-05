@@ -47,7 +47,7 @@ pub fn onHover(ctx: Server.Ctx(HoverParams)) !Result(?Hover) {
 ///
 /// and another one,
 /// for a quick `hover` try-out!
-fn toMarkDown(mem: *std.heap.ArenaAllocator, context: *const SrcIntel.Resolved, cur_resolved: SrcIntel.AstResolved) !Str {
+fn toMarkDown(mem: *std.heap.ArenaAllocator, context: *const SrcIntel.Resolved, cur_resolved: zast.Resolved) !Str {
     switch (cur_resolved) {
         else => return try std.fmt.allocPrint(&mem.
             allocator, "no toMarkDown impl yet for `{}`", .{std.meta.activeTag(cur_resolved)}),
@@ -89,18 +89,23 @@ fn toMarkDown(mem: *std.heap.ArenaAllocator, context: *const SrcIntel.Resolved, 
             return str;
         },
 
-        .loc_ref_same_src_file => |node| {
-            const start = context.ast.tokens.at(node.firstToken()).start;
-            const end = context.ast.tokens.at(node.lastToken()).end;
-            var str: Str = "";
-            if (try SrcIntel.astNodeDocComments(mem, context.ast, node)) |doc_comment_lines|
-                if (doc_comment_lines.len != 0) {
-                    for (doc_comment_lines) |doc_comment_line|
-                        str = try std.fmt.allocPrint(&mem.allocator, "{s}{s}\n", .{ str, doc_comment_line });
-                    str = try std.fmt.allocPrint(&mem.allocator, "{s}\n \n____\n \n", .{str});
-                };
-            str = try std.fmt.allocPrint(&mem.allocator, "{s}```zig\n{}\n```\n", .{ str, context.ast.source[start..end] });
-            return str;
+        .loc_ref => |loc_ref| switch (loc_ref) {
+            else => return try std.fmt.allocPrint(&mem.
+                allocator, "no toMarkDown impl yet for `{}`", .{std.meta.activeTag(loc_ref)}),
+
+            .same_src_file => |node| {
+                const start = context.ast.tokens.at(node.firstToken()).start;
+                const end = context.ast.tokens.at(node.lastToken()).end;
+                var str: Str = "";
+                if (try zast.nodeDocComments(mem, context.ast, node)) |doc_comment_lines|
+                    if (doc_comment_lines.len != 0) {
+                        for (doc_comment_lines) |doc_comment_line|
+                            str = try std.fmt.allocPrint(&mem.allocator, "{s}{s}\n", .{ str, doc_comment_line });
+                        str = try std.fmt.allocPrint(&mem.allocator, "{s}\n \n____\n \n", .{str});
+                    };
+                str = try std.fmt.allocPrint(&mem.allocator, "{s}```zig\n{}\n```\n", .{ str, context.ast.source[start..end] });
+                return str;
+            },
         },
     }
 }
