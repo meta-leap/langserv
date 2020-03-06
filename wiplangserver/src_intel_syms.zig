@@ -3,8 +3,8 @@ usingnamespace @import("./_usingnamespace.zig");
 fn srcFileSymbols(comptime T: type, mem: *std.heap.ArenaAllocator, src_file_uri: Str, force_hint: ?Str) ![]T {
     const src_file_abs_path = lspUriToFilePath(src_file_uri);
     const hierarchical = (T == DocumentSymbol);
-    const locked = (try zsess.src_intel.withNamedDeclsEnsured(mem, src_file_abs_path)) orelse return &[_]T{};
-    defer locked.held.release();
+    var locked = (try zsess.src_intel.withNamedDeclsEnsured(mem, src_file_abs_path)) orelse return &[_]T{};
+    defer locked.deinitAndUnlock();
     const intel = &locked.item.src_file.intel.?;
     const src = locked.item.ast.source;
     const decls = try intel.named_decls.?.toOrderedList(&mem.allocator, null);

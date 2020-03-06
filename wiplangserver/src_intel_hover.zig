@@ -10,8 +10,8 @@ pub fn onHover(ctx: Server.Ctx(HoverParams)) !Result(?Hover) {
             ctx.value.TextDocumentPositionParams.position.line,
             ctx.value.TextDocumentPositionParams.position.character,
         },
-    })) |locked| {
-        defer locked.held.release();
+    })) |*locked| {
+        defer locked.deinitAndUnlock();
         for (locked.item.resolveds) |resolved|
             try markdowns.append(try toMarkDown(ctx.memArena(), &locked.item, resolved));
         if (markdowns.len == 0) switch (locked.item.node.id) {
