@@ -107,7 +107,7 @@ fn toMarkDown(mem: *std.heap.ArenaAllocator, context: *const SrcIntel.Resolved, 
                 switch (node.id) {
                     else => {},
                     .PointerIndexPayload, .PointerPayload, .Payload => {
-                        if (try zast.pathToNode(mem, &context.the, .{ .node = node })) |node_path|
+                        if (try zast.pathToNode(&context.the, .{ .node = node })) |node_path|
                             start = context.the.ast.tokens.at(node_path[node_path.len - 2].firstToken()).start;
                     },
                 }
