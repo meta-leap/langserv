@@ -6,7 +6,7 @@ usingnamespace @import("../../jsonic/jsonic.zig").Rpc;
 const stdout = std.io.getStdOut();
 
 fn stdoutWrite(out_bytes: Str) !void {
-    try stdout.write(out_bytes);
+    _ = try stdout.write(out_bytes);
 }
 
 pub fn main() !void {

@@ -7,7 +7,7 @@ pub var mem_alloc_debug = zag.debug.Allocator.init(std.heap.page_allocator);
 const stdout = std.io.getStdOut();
 
 fn stdoutWrite(out_bytes: Str) !void {
-    try stdout.write(out_bytes);
+    _ = try stdout.write(out_bytes);
     // if (std.builtin.mode == .Debug)
     //     mem_alloc_debug.report("\n");
 }
