@@ -89,31 +89,26 @@ fn toMarkDown(mem: *std.heap.ArenaAllocator, context: *const SrcIntel.Resolved, 
             return str;
         },
 
-        .loc_ref => |loc_ref| switch (loc_ref) {
-            else => return try std.fmt.allocPrint(&mem.
-                allocator, "no toMarkDown impl yet for `{}`", .{std.meta.activeTag(loc_ref)}),
+        .loc_ref => |*loc_ref| {
+            var str: Str = "";
+            if (try zast.nodeDocComments(mem, loc_ref.ctx.ast, loc_ref.node)) |doc_comment_lines|
+                if (doc_comment_lines.len != 0) {
+                    for (doc_comment_lines) |doc_comment_line|
+                        str = try std.fmt.allocPrint(&mem.allocator, "{s}{s}\n", .{ str, doc_comment_line });
+                    str = try std.fmt.allocPrint(&mem.allocator, "{s}\n \n____\n \n", .{str});
+                };
 
-            .same_src_file => |node| {
-                var str: Str = "";
-                if (try zast.nodeDocComments(mem, context.the.ast, node)) |doc_comment_lines|
-                    if (doc_comment_lines.len != 0) {
-                        for (doc_comment_lines) |doc_comment_line|
-                            str = try std.fmt.allocPrint(&mem.allocator, "{s}{s}\n", .{ str, doc_comment_line });
-                        str = try std.fmt.allocPrint(&mem.allocator, "{s}\n \n____\n \n", .{str});
-                    };
-
-                var start = context.the.ast.tokens.at(node.firstToken()).start;
-                var end = context.the.ast.tokens.at(node.lastToken()).end;
-                switch (node.id) {
-                    else => {},
-                    .PointerIndexPayload, .PointerPayload, .Payload => {
-                        if (try zast.pathToNode(&context.the, .{ .node = node })) |node_path|
-                            start = context.the.ast.tokens.at(node_path[node_path.len - 2].firstToken()).start;
-                    },
-                }
-                str = try std.fmt.allocPrint(&mem.allocator, "{s}```zig\n{}\n```\n", .{ str, context.the.ast.source[start..end] });
-                return str;
-            },
+            var start = loc_ref.ctx.ast.tokens.at(loc_ref.node.firstToken()).start;
+            var end = loc_ref.ctx.ast.tokens.at(loc_ref.node.lastToken()).end;
+            switch (loc_ref.node.id) {
+                else => {},
+                .PointerIndexPayload, .PointerPayload, .Payload => {
+                    if (try zast.pathToNode(loc_ref.ctx, .{ .node = loc_ref.node })) |node_path|
+                        start = loc_ref.ctx.ast.tokens.at(node_path[node_path.len - 2].firstToken()).start;
+                },
+            }
+            str = try std.fmt.allocPrint(&mem.allocator, "{s}```zig\n{}\n```\n", .{ str, loc_ref.ctx.ast.source[start..end] });
+            return str;
         },
     }
 }
