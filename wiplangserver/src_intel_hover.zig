@@ -47,7 +47,7 @@ pub fn onHover(ctx: Server.Ctx(HoverParams)) !Result(?Hover) {
 ///
 /// and another one,
 /// for a quick `hover` try-out!
-fn toMarkDown(mem: *std.heap.ArenaAllocator, context: *const SrcIntel.Resolved, cur_resolved: zast.Resolved) !Str {
+fn toMarkDown(mem: *std.heap.ArenaAllocator, _: *const SrcIntel.Resolved, cur_resolved: zast.Resolved) !Str {
     switch (cur_resolved) {
         else => return try std.fmt.allocPrint(&mem.
             allocator, "no toMarkDown impl yet for `{}`", .{std.meta.activeTag(cur_resolved)}),
