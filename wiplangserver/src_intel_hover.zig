@@ -52,9 +52,7 @@ fn toMarkDown(mem: *std.heap.ArenaAllocator, _: *const SrcIntel.Resolved, cur_re
         else => return try std.fmt.allocPrint(&mem.
             allocator, "no toMarkDown impl yet for `{}`", .{std.meta.activeTag(cur_resolved)}),
 
-        .err_or_warning => |issue| return try std.fmt.allocPrint(&mem.
-            allocator, "Problem with this `{}`:\n\n{}", .{ zag.mem.
-            trimPrefix(u8, try std.fmt.allocPrint(&mem.allocator, "{}", .{issue.node_id}), "Id."), issue.detail }),
+        .err_or_warning => |issue_message| return issue_message,
 
         .array => |arr| return try std.fmt.allocPrint(&mem.allocator, "{} array item(s)", .{arr.len}),
 
