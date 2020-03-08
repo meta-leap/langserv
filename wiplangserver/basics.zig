@@ -31,7 +31,7 @@ pub fn convertPosInfoToLspRange(mem_temp: *std.heap.ArenaAllocator, src: Str, is
             break :pos2range Range{ .start = pos, .end = pos };
         },
     };
-    return make(&mem_temp.allocator, usize, .{ range.start.line, range.start.character, range.end.line, range.end.character });
+    return  try make(&mem_temp.allocator, usize, .{ range.start.line, range.start.character, range.end.line, range.end.character });
 }
 
 pub fn convertPosInfoFromLspPos(mem_temp: *std.heap.ArenaAllocator, src: Str, is_ascii_only: bool, pos_info: []usize) !?usize {
