@@ -19,7 +19,11 @@ pub fn main() !u8 {
     server.cfg.serverInfo.?.name = "wiplangserver";
     setupCapabilitiesAndHandlers(&server);
     std.debug.warn("Enter main loop...\n", .{});
-    return if (server.forever(&std.io.getStdIn().inStream().stream)) 0 else |err| 1;
+
+    return if (server.forever(&std.io.getStdIn().inStream().stream))
+        0
+    else |err|
+        1;
     // return if (server.forever(&std.io.BufferedInStream(std.os.ReadError).
     //     init(&std.io.getStdIn().inStream().stream).stream)) 0 else |err| 1;
 }

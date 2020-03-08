@@ -35,7 +35,7 @@ pub const Server = struct {
 
         if (me.api.__.handlers_requests[@enumToInt(api_server_side.RequestIn.initialize)]) |_|
             return error.CallerAlreadySubscribedToLspServerReservedInitializeMsg;
-        if (me.api.__.handlers_notifies[@enumToInt(api_server_side.NotifyIn.__cancelRequest)]) |_|
+        if (me.api.__.handlers_notifies[@enumToInt(api_server_side.NotifyIn.@"$/cancelRequest")]) |_|
             return error.CallerAlreadySubscribedToLspServerReservedCancelRequestMsg;
         if (me.api.__.handlers_notifies[@enumToInt(api_server_side.NotifyIn.exit)]) |_|
             return error.CallerAlreadySubscribedToLspServerReservedExitMsg;
@@ -50,7 +50,7 @@ pub const Server = struct {
         }
 
         me.api.onRequest(.initialize, on_initialize);
-        me.api.onNotify(.__cancelRequest, on_cancel);
+        me.api.onNotify(.@"$/cancelRequest", on_cancel);
         me.api.onNotify(.exit, on_exit);
 
         var in_stream_splitter = zag.io.HttpishHeaderBodySplittingReader(@TypeOf(in_stream)){

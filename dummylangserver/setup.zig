@@ -7,8 +7,8 @@ usingnamespace @import("./src_files_tracker.zig");
 const utils = @import("./utils.zig");
 
 pub fn setupCapabilitiesAndHandlers(srv: *Server) void {
-    srv.api.onNotify(.initialized, onInitialized);
-    srv.api.onRequest(.shutdown, onShutdown);
+    srv.api.onNotify(.@"initialized", onInitialized);
+    srv.api.onRequest(.@"shutdown", onShutdown);
 
     // FILE EVENTS
     srv.cfg.capabilities.textDocumentSync = .{
@@ -18,15 +18,15 @@ pub fn setupCapabilitiesAndHandlers(srv: *Server) void {
             .save = .{ .includeText = true },
         },
     };
-    srv.api.onNotify(.textDocument_didClose, onFileClosed);
-    srv.api.onNotify(.textDocument_didOpen, onFileBufOpened);
-    srv.api.onNotify(.textDocument_didChange, onFileBufEdited);
-    srv.api.onNotify(.textDocument_didSave, onFileBufSaved);
-    srv.api.onNotify(.workspace_didChangeWatchedFiles, onFileEvents);
+    srv.api.onNotify(.@"textDocument/didClose", onFileClosed);
+    srv.api.onNotify(.@"textDocument/didOpen", onFileBufOpened);
+    srv.api.onNotify(.@"textDocument/didChange", onFileBufEdited);
+    srv.api.onNotify(.@"textDocument/didSave", onFileBufSaved);
+    srv.api.onNotify(.@"workspace/didChangeWatchedFiles", onFileEvents);
 
     // HOVER TOOLTIP
     srv.cfg.capabilities.hoverProvider = .{ .enabled = true };
-    srv.api.onRequest(.textDocument_hover, onHover);
+    srv.api.onRequest(.@"textDocument/hover", onHover);
 
     // AUTO-COMPLETE
     srv.cfg.capabilities.completionProvider = .{
@@ -34,38 +34,38 @@ pub fn setupCapabilitiesAndHandlers(srv: *Server) void {
         .allCommitCharacters = &[_]Str{"\t"},
         .resolveProvider = true,
     };
-    srv.api.onRequest(.textDocument_completion, onCompletion);
-    srv.api.onRequest(.completionItem_resolve, onCompletionResolve);
+    srv.api.onRequest(.@"textDocument/completion", onCompletion);
+    srv.api.onRequest(.@"completionItem/resolve", onCompletionResolve);
 
     // FORMATTING
     srv.cfg.capabilities.documentRangeFormattingProvider = .{ .enabled = true };
-    srv.api.onRequest(.textDocument_rangeFormatting, onFormatRange);
+    srv.api.onRequest(.@"textDocument/rangeFormatting", onFormatRange);
     srv.cfg.capabilities.documentOnTypeFormattingProvider = .{ .firstTriggerCharacter = "}" };
-    srv.api.onRequest(.textDocument_onTypeFormatting, onFormatOnType);
+    srv.api.onRequest(.@"textDocument/onTypeFormatting", onFormatOnType);
 
     // SYMBOLS
     srv.cfg.capabilities.documentSymbolProvider = .{ .enabled = true };
-    srv.api.onRequest(.textDocument_documentSymbol, onSymbols);
+    srv.api.onRequest(.@"textDocument/documentSymbol", onSymbols);
 
     // RENAME
     srv.cfg.capabilities.renameProvider = .{ .options = .{ .prepareProvider = true } };
-    srv.api.onRequest(.textDocument_prepareRename, onRenamePrep);
-    srv.api.onRequest(.textDocument_rename, onRename);
+    srv.api.onRequest(.@"textDocument/prepareRename", onRenamePrep);
+    srv.api.onRequest(.@"textDocument/rename", onRename);
 
     // SIGNATURE TOOLTIP
     srv.cfg.capabilities.signatureHelpProvider = .{
         .triggerCharacters = &[_]Str{ "[", "{" },
         .retriggerCharacters = &[_]Str{ ",", ":" },
     };
-    srv.api.onRequest(.textDocument_signatureHelp, onSignatureHelp);
+    srv.api.onRequest(.@"textDocument/signatureHelp", onSignatureHelp);
 
     // SYMBOL HIGHLIGHT
     srv.cfg.capabilities.documentHighlightProvider = .{ .enabled = true };
-    srv.api.onRequest(.textDocument_documentHighlight, onSymbolHighlight);
+    srv.api.onRequest(.@"textDocument/documentHighlight", onSymbolHighlight);
 
     // CODE ACTIONS / COMMANDS
     srv.cfg.capabilities.codeActionProvider = .{ .enabled = true };
-    srv.api.onRequest(.textDocument_codeAction, onCodeActions);
+    srv.api.onRequest(.@"textDocument/codeAction", onCodeActions);
     srv.cfg.capabilities.executeCommandProvider = .{
         .commands = &[_]Str{
             "dummylangserver.caseup",
@@ -73,25 +73,25 @@ pub fn setupCapabilitiesAndHandlers(srv: *Server) void {
             "dummylangserver.infomsg",
         },
     };
-    srv.api.onRequest(.workspace_executeCommand, onExecuteCommand);
+    srv.api.onRequest(.@"workspace/executeCommand", onExecuteCommand);
     srv.cfg.capabilities.codeLensProvider = .{ .resolveProvider = false };
-    srv.api.onRequest(.textDocument_codeLens, onCodeLenses);
+    srv.api.onRequest(.@"textDocument/codeLens", onCodeLenses);
 
     // SELECTION RANGE
     srv.cfg.capabilities.selectionRangeProvider = .{ .enabled = true };
-    srv.api.onRequest(.textDocument_selectionRange, onSelectionRange);
+    srv.api.onRequest(.@"textDocument/selectionRange", onSelectionRange);
 
     // CODE LOCATIONS
     srv.cfg.capabilities.referencesProvider = .{ .enabled = true };
-    srv.api.onRequest(.textDocument_references, Locs(ReferenceParams, []Location).handle);
+    srv.api.onRequest(.@"textDocument/references", Locs(ReferenceParams, []Location).handle);
     srv.cfg.capabilities.definitionProvider = .{ .enabled = true };
-    srv.api.onRequest(.textDocument_definition, Locs(DefinitionParams, Locations).handle);
+    srv.api.onRequest(.@"textDocument/definition", Locs(DefinitionParams, Locations).handle);
     srv.cfg.capabilities.typeDefinitionProvider = .{ .enabled = true };
-    srv.api.onRequest(.textDocument_typeDefinition, Locs(TypeDefinitionParams, Locations).handle);
+    srv.api.onRequest(.@"textDocument/typeDefinition", Locs(TypeDefinitionParams, Locations).handle);
     srv.cfg.capabilities.declarationProvider = .{ .enabled = true };
-    srv.api.onRequest(.textDocument_declaration, Locs(DeclarationParams, Locations).handle);
+    srv.api.onRequest(.@"textDocument/declaration", Locs(DeclarationParams, Locations).handle);
     srv.cfg.capabilities.implementationProvider = .{ .enabled = true };
-    srv.api.onRequest(.textDocument_implementation, Locs(ImplementationParams, Locations).handle);
+    srv.api.onRequest(.@"textDocument/implementation", Locs(ImplementationParams, Locations).handle);
 }
 
 fn onHover(ctx: Server.Ctx(HoverParams)) !Result(?Hover) {
@@ -249,7 +249,7 @@ fn onExecuteCommand(ctx: Server.Ctx(ExecuteCommandParams)) !Result(?jsonic.AnyVa
         if (args.len == 1) switch (args[0]) {
             else => {},
             .string => |arg| if (std.mem.eql(u8, ctx.value.command, "dummylangserver.infomsg")) {
-                try ctx.inst.api.notify(.window_showMessage, ShowMessageParams{ .@"type" = .Info, .message = arg });
+                try ctx.inst.api.notify(.@"window/showMessage", ShowMessageParams{ .@"type" = .Info, .message = arg });
                 return Result(?jsonic.AnyValue){ .ok = null };
             } else {
                 const src_file_uri = arg;
@@ -270,7 +270,7 @@ fn onExecuteCommand(ctx: Server.Ctx(ExecuteCommandParams)) !Result(?jsonic.AnyVa
                     var edit = WorkspaceEdit{ .changes = std.StringHashMap([]TextEdit).init(ctx.mem) };
                     _ = try edit.changes.?.put(src_file_uri, edits);
 
-                    try ctx.inst.api.request(.workspace_applyEdit, {}, ApplyWorkspaceEditParams{ .edit = edit }, struct {
+                    try ctx.inst.api.request(.@"workspace/applyEdit", {}, ApplyWorkspaceEditParams{ .edit = edit }, struct {
                         pub fn then(state: void, resp: Server.Ctx(Result(ApplyWorkspaceEditResponse))) error{}!void {
                             switch (resp.value) {
                                 .err => |err| std.debug.warn("Requested edit not applied by client: {}\n", .{err}),
@@ -342,12 +342,12 @@ fn Locs(comptime TArg: type, comptime TRet: type) type {
 fn onInitialized(ctx: Server.Ctx(InitializedParams)) !void {
     src_files_cache = std.StringHashMap(Str).init(&ctx.inst.mem_forever.?.allocator);
     std.debug.warn("\nonInitialized:\t{}\n", .{ctx.value});
-    try ctx.inst.api.notify(.window_showMessage, ShowMessageParams{
+    try ctx.inst.api.notify(.@"window/showMessage", ShowMessageParams{
         .@"type" = .Warning,
         .message = try std.fmt.allocPrint(ctx.mem, "So it's you... {}", .{ctx.inst.initialized.?.clientInfo.?.name}),
     });
 
-    try ctx.inst.api.request(.client_registerCapability, {}, RegistrationParams{
+    try ctx.inst.api.request(.@"client/registerCapability", {}, RegistrationParams{
         .registrations = &[1]Registration{Registration{
             .method = "workspace/didChangeWatchedFiles",
             .id = try zag.util.uniqueishId(ctx.mem, "dummylangserver_filewatch"),

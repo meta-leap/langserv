@@ -50,7 +50,7 @@ pub fn onFileBufSaved(ctx: Server.Ctx(DidSaveTextDocumentParams)) !void {
     const State = struct { token: ProgressToken, params: DidSaveTextDocumentParams };
     const token = ProgressToken{ .string = try zag.util.uniqueishId(ctx.mem, "dummylangserver_progress") };
 
-    try ctx.inst.api.request(.window_workDoneProgress_create, State{
+    try ctx.inst.api.request(.@"window/workDoneProgress/create", State{
         .token = token,
         .params = ctx.value,
     }, WorkDoneProgressCreateParams{
@@ -58,19 +58,19 @@ pub fn onFileBufSaved(ctx: Server.Ctx(DidSaveTextDocumentParams)) !void {
     }, struct {
         pub fn then(state: *State, resp: Server.Ctx(Result(void))) !void {
             switch (resp.value) {
-                .err => |err| try resp.inst.api.notify(.window_showMessage, ShowMessageParams{
+                .err => |err| try resp.inst.api.notify(.@"window/showMessage", ShowMessageParams{
                     .@"type" = .Error,
                     .message = try std.fmt.allocPrint(resp.mem, "{}", .{err}),
                 }),
                 .ok => {
-                    try resp.inst.api.notify(.__progress, ProgressParams{ .token = state.token, .value = WorkDoneProgress{ .kind = "begin", .title = "Diags..", .percentage = 0 } });
+                    try resp.inst.api.notify(.@"$/progress", ProgressParams{ .token = state.token, .value = WorkDoneProgress{ .kind = "begin", .title = "Diags..", .percentage = 0 } });
                     var num_secs: usize = 5;
                     var sec: usize = 0;
                     while (sec < num_secs) : (sec += 1) {
                         std.time.sleep(1 * std.time.ns_per_s);
-                        try resp.inst.api.notify(.__progress, ProgressParams{ .token = state.token, .value = WorkDoneProgress{ .kind = "report", .title = "Diags..", .percentage = 10 + sec * (100 / num_secs), .message = try std.fmt.allocPrint(resp.mem, "{}/{}...", .{ sec + 1, num_secs }) } });
+                        try resp.inst.api.notify(.@"$/progress", ProgressParams{ .token = state.token, .value = WorkDoneProgress{ .kind = "report", .title = "Diags..", .percentage = 10 + sec * (100 / num_secs), .message = try std.fmt.allocPrint(resp.mem, "{}/{}...", .{ sec + 1, num_secs }) } });
                     }
-                    try resp.inst.api.notify(.__progress, ProgressParams{ .token = state.token, .value = WorkDoneProgress{ .kind = "end", .title = "Diags..", .percentage = 100 } });
+                    try resp.inst.api.notify(.@"$/progress", ProgressParams{ .token = state.token, .value = WorkDoneProgress{ .kind = "end", .title = "Diags..", .percentage = 100 } });
                     try pushDiagnostics(resp.mem, resp.inst, state.params.textDocument.uri, state.params.text);
                 },
             }
@@ -91,7 +91,7 @@ fn pushDiagnostics(mem: *std.mem.Allocator, srv: *Server, src_file_uri: Str, src
             });
         }
     }
-    try srv.api.notify(.textDocument_publishDiagnostics, PublishDiagnosticsParams{
+    try srv.api.notify(.@"textDocument/publishDiagnostics", PublishDiagnosticsParams{
         .uri = src_file_uri,
         .diagnostics = diags.items[0..diags.len],
     });
@@ -99,7 +99,7 @@ fn pushDiagnostics(mem: *std.mem.Allocator, srv: *Server, src_file_uri: Str, src
 
 pub fn onFileEvents(ctx: Server.Ctx(DidChangeWatchedFilesParams)) !void {
     for (ctx.value.changes) |change|
-        try ctx.inst.api.notify(.window_showMessage, ShowMessageParams{
+        try ctx.inst.api.notify(.@"window/showMessage", ShowMessageParams{
             .@"type" = .Info,
             .message = try std.fmt.allocPrint(ctx.mem, "{}", .{change}),
         });

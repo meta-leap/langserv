@@ -33,12 +33,12 @@ pub fn setupSrcFileAndWorkFolderRelatedCapabilitiesAndHandlers(srv: *Server) voi
             .save = .{ .includeText = true },
         },
     };
-    srv.api.onNotify(.textDocument_didClose, onFileClosed);
-    srv.api.onNotify(.textDocument_didOpen, onFileBufOpened);
-    srv.api.onNotify(.textDocument_didChange, onFileBufEdited);
-    srv.api.onNotify(.textDocument_didSave, onFileBufSaved);
-    srv.api.onNotify(.workspace_didChangeWorkspaceFolders, onDirEvent);
-    srv.api.onNotify(.workspace_didChangeWatchedFiles, onFileEvents);
+    srv.api.onNotify(.@"textDocument/didClose", onFileClosed);
+    srv.api.onNotify(.@"textDocument/didOpen", onFileBufOpened);
+    srv.api.onNotify(.@"textDocument/didChange", onFileBufEdited);
+    srv.api.onNotify(.@"textDocument/didSave", onFileBufSaved);
+    srv.api.onNotify(.@"workspace/didChangeWorkspaceFolders", onDirEvent);
+    srv.api.onNotify(.@"workspace/didChangeWatchedFiles", onFileEvents);
 }
 
 pub fn onDirEvent(ctx: Server.Ctx(DidChangeWorkspaceFoldersParams)) !void {
@@ -170,7 +170,7 @@ pub fn onFileBufEdited(ctx: Server.Ctx(DidChangeTextDocumentParams)) !void {
         src_files_owned_by_client.live_bufs.delete(src_file_abs_path);
         if (sync_kind == .Incremental)
             _ = src_files_owned_by_client.versions.remove(src_file_id);
-        try ctx.inst.api.notify(.window_showMessage, ShowMessageParams{
+        try ctx.inst.api.notify(.@"window/showMessage", ShowMessageParams{
             .@"type" = .Warning,
             .message = try std.fmt.allocPrint(ctx.mem, "No longer in live mode for {s}. Until re-opening, all intel will be from the on-disk file. Please report to github.com/meta-leap/langserv with details about your LSP client '{}'.", .{ src_file_abs_path, ctx.inst.initialized.?.clientInfo.?.name }),
         });
@@ -215,7 +215,7 @@ pub fn onFileEvents(ctx: Server.Ctx(DidChangeWatchedFilesParams)) !void {
 }
 
 pub fn onInitRegisterFileWatcher(ctx: Server.Ctx(InitializedParams)) !void {
-    try ctx.inst.api.request(.client_registerCapability, {}, RegistrationParams{
+    try ctx.inst.api.request(.@"client/registerCapability", {}, RegistrationParams{
         .registrations = &[1]Registration{Registration{
             .method = "workspace/didChangeWatchedFiles",
             .id = try zag.util.uniqueishId(ctx.mem, "ziglangserver_filewatch"),

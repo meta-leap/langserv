@@ -2,7 +2,7 @@ const std = @import("std");
 usingnamespace @import("../../zag/zag.zig");
 const jsonic = @import("../../jsonic/jsonic.zig");
 
-// TODO: catch up on spec changes since last check of: 24 Feb 2020
+// TODO: occasionally catch up on spec changes since last check of: 8 Mar 2020
 // https://microsoft.github.io/language-server-protocol/specifications/specification-current/
 // https://github.com/Microsoft/language-server-protocol/blob/gh-pages/_specifications/specification-3-15.md
 
