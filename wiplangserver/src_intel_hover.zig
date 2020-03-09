@@ -121,9 +121,7 @@ fn toMarkDown(mem: *std.heap.ArenaAllocator, _: *const SrcIntel.Resolved, cur_re
 
 fn typeStr(mem: *std.mem.Allocator, type_desc: *const zast.Resolved.TypeDesc) error{OutOfMemory}!Str {
     switch (type_desc.*) {
-        .nil => |nil| return try strfmt(mem, "{}", .{nil}),
-
-        .boolean => return @as(Str, "bool"),
+        .prim => |prim| return @tagName(prim),
 
         .int => |int| return if (int.bit_width) |bit_width|
             try strfmt(mem, "{c}{d}", .{ if (int.unsigned) @as(u8, 'u') else @as(u8, 'i'), bit_width })
