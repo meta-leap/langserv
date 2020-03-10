@@ -56,43 +56,6 @@ fn toMarkDown(mem: *std.heap.ArenaAllocator, _: *const SrcIntel.Resolved, cur_re
 
         .err_or_warning => |issue_message| return issue_message,
 
-        .array => |arr| return try strfmt(&mem.allocator, "{} array item(s)", .{arr.len}),
-
-        .boolean => |b| return try strfmt(&mem.allocator, "```zig\n{}: bool\n```\n", .{b}),
-
-        .string => |str| return try strfmt(&mem.
-            allocator, "- {} byte(s) ({} ASCII)\n- {} UTF-8 rune(s)\n- {} line-break(s)\n- {} tab-stop(s)", .{ str.len, zag.util.asciiByteCount(str), if (zag.util.utf8RuneCount(str)) |n| n else |_| 0, zag.mem.count(str, '\n'), zag.mem.count(str, '\t') }),
-
-        .float => |float| {
-            var str: Str = "";
-            const format_chars = "{d}{e}";
-            comptime var i: usize = 0;
-            inline while (i < format_chars.len) : (i += 3) {
-                const fmt_preview = try strfmt(&mem.allocator, format_chars[i .. i + 3], .{float});
-                str = try strfmt(&mem.allocator, "{s}- `{s}` &rarr; `{s}`\n", .{ str, format_chars[i .. i + 3], fmt_preview });
-            }
-            {
-                const fmt_preview = try strfmt(&mem.allocator, "{d:.3}", .{float});
-                str = try strfmt(&mem.allocator, "{s}- `{s}` &rarr; `{s}`\n", .{ str, "{d:.3}", fmt_preview });
-            }
-            return str;
-        },
-
-        .int => |int| {
-            var str: Str = "";
-            const format_chars = "{d}{x}{b}";
-            comptime var i: usize = 0;
-            inline while (i < format_chars.len) : (i += 3) {
-                const fmt_preview = try strfmt(&mem.allocator, format_chars[i .. i + 3], .{int});
-                str = try strfmt(&mem.allocator, "{s}- `{s}` &rarr; `{s}`\n", .{ str, format_chars[i .. i + 3], fmt_preview });
-            }
-            if (int > 32 and int < 127) {
-                const fmt_preview = try strfmt(&mem.allocator, "{c}", .{@intCast(u8, int)});
-                str = try strfmt(&mem.allocator, "{s}- `{s}` &rarr; `{s}`\n", .{ str, "{c}", fmt_preview });
-            }
-            return str;
-        },
-
         .loc_ref => |*loc_ref| {
             var str: Str = "";
             if (try zast.nodeDocComments(mem, loc_ref.ctx.ast, loc_ref.node)) |doc_comment_lines|
@@ -116,6 +79,43 @@ fn toMarkDown(mem: *std.heap.ArenaAllocator, _: *const SrcIntel.Resolved, cur_re
         },
 
         .type_desc => |type_desc| return try strfmt(&mem.allocator, "```zig\n{s}\n```\n", .{try typeStr(&mem.allocator, &type_desc)}),
+
+        .lit_arr => |arr| return try strfmt(&mem.allocator, "{} array item(s)", .{arr.len}),
+
+        .lit_bool => |b| return try strfmt(&mem.allocator, "```zig\n{}: bool\n```\n", .{b}),
+
+        .lit_str => |str| return try strfmt(&mem.
+            allocator, "- {} byte(s) ({} ASCII)\n- {} UTF-8 rune(s)\n- {} line-break(s)\n- {} tab-stop(s)", .{ str.len, zag.util.asciiByteCount(str), if (zag.util.utf8RuneCount(str)) |n| n else |_| 0, zag.mem.count(str, '\n'), zag.mem.count(str, '\t') }),
+
+        .lit_float => |float| {
+            var str: Str = "";
+            const format_chars = "{d}{e}";
+            comptime var i: usize = 0;
+            inline while (i < format_chars.len) : (i += 3) {
+                const fmt_preview = try strfmt(&mem.allocator, format_chars[i .. i + 3], .{float});
+                str = try strfmt(&mem.allocator, "{s}- `{s}` &rarr; `{s}`\n", .{ str, format_chars[i .. i + 3], fmt_preview });
+            }
+            {
+                const fmt_preview = try strfmt(&mem.allocator, "{d:.3}", .{float});
+                str = try strfmt(&mem.allocator, "{s}- `{s}` &rarr; `{s}`\n", .{ str, "{d:.3}", fmt_preview });
+            }
+            return str;
+        },
+
+        .lit_int => |int| {
+            var str: Str = "";
+            const format_chars = "{d}{x}{b}";
+            comptime var i: usize = 0;
+            inline while (i < format_chars.len) : (i += 3) {
+                const fmt_preview = try strfmt(&mem.allocator, format_chars[i .. i + 3], .{int});
+                str = try strfmt(&mem.allocator, "{s}- `{s}` &rarr; `{s}`\n", .{ str, format_chars[i .. i + 3], fmt_preview });
+            }
+            if (int > 32 and int < 127) {
+                const fmt_preview = try strfmt(&mem.allocator, "{c}", .{@intCast(u8, int)});
+                str = try strfmt(&mem.allocator, "{s}- `{s}` &rarr; `{s}`\n", .{ str, "{c}", fmt_preview });
+            }
+            return str;
+        },
     }
 }
 
